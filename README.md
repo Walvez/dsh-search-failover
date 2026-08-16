@@ -26,13 +26,18 @@ web_search (原生工具)
 ## 开发安装 (link:)
 
 ```bash
-# 1. 装进 web profile (本地 link, 改代码即时生效)
+# 1. 装进 web profile (link: 改代码即时生效)
+#    package.json 声明 dsh.bundle.patch → 自动加入 profile bundle 层
 dsh plugin --profile web add link:/Users/walve/Documents/Codex/dsh-search-failover
 
-# 2. 改用户 patch: web.searchProvider → search-pool
-#    (插件 bundle 在用户 patch 之前应用, 用户自己的 exa 配置会覆盖)
+# 2. 用户 patch (cordis.patch.yml) 提供后端链配置:
+#    - id: web  → searchProvider: search-pool
+#    - id: search-pool → config.backends (见下)
+#    (bundle 只插入行; key 经 apiKeyEnv 从 ~/.dsh/.env 读取)
 
-# 3. 重启 dsh web
+# 3. 验证组合树 (无需重启): dsh --profile web --dump-config | grep -A30 "id: search-pool"
+
+# 4. 重启 dsh web 生效
 ```
 
 ## 后端适配器 (免费额度, 2026-08 核实)
@@ -43,7 +48,7 @@ dsh plugin --profile web add link:/Users/walve/Documents/Codex/dsh-search-failov
 | `tavily` | Tavily | 1000 积分/月 | 可选 | 无 key 自动走 keyless 匿名档 ✅ 实测可用 |
 | `serper` | Serper.dev | 2500 次一次性 | 必须 | Google SERP |
 | `serpapi` | SerpApi | 250 次/月 | 必须 | Google SERP |
-| `brave` | Brave | 2000 次/月 (注册要信用卡) | 必须 | |
+| `brave` | Brave | ⚠️ 免费档已撤 (2026-08 实测注册需订阅) | 必须 | 不推荐 |
 | `jina` | Jina s.jina.ai | 免费注册得 key | 必须 | ⚠️ 实测 2026-08 无 key 已 401, markdown 解析 |
 | `ddg` | DuckDuckGo | 完全免费 | 无 | ⚠️ 实测 2026-08 被反爬拦截 (202 anomaly), 视网络/IP 而定 |
 | `searxng` | SearXNG 自托管 | 完全免费 | 无 | `baseURL` 或 env `SEARXNG_BASE_URL`; 实例需开 `format: json` |
@@ -119,9 +124,13 @@ EXA_API_KEY=xxx node scripts/smoke.mjs [kind...]   # 逐个真实调用并打印
 | kind | 实测结果 |
 |---|---|
 | `exa` (真实 key) | ✅ 5 条结果 ~2s |
-| `tavily` (keyless) | ✅ 5 条结果 ~2.8s, 匿名档可用 |
-| `jina` | ❌ 无 key 401 → 已改为必须 key |
+| `tavily` (真实 key) | ✅ 5 条结果 ~1.3s |
+| `tavily` (keyless 匿名) | ✅ 5 条结果 ~2.8s |
+| `serper` (真实 key) | ✅ 5 条结果 ~2.3s |
+| `serpapi` (真实 key) | ✅ 6 条结果 ~14s (最慢) |
+| `jina` (真实 key) | ✅ 6 条结果 ~8.3s |
 | `ddg` | ❌ html/lite 双端点均 202 anomaly (反爬), 浏览器 UA 无效 |
+| `brave` | ❌ 免费档已撤, 未注册 |
 
 ## 合规提示
 
