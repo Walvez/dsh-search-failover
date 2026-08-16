@@ -1,0 +1,9 @@
+# dsh-search-failover bundle layer — 应用顺序在用户 cordis.patch.yml 之前。
+# 注意: 用户自己的 patch 若设置了 web.searchProvider(exa 等) 会覆盖本行,
+# 安装后需把用户 patch 里的 searchProvider 改为 search-pool。
+- id: web
+  config:
+    searchProvider: search-pool
+- insert:
+    - id: search-pool
+      name: dsh-search-failover

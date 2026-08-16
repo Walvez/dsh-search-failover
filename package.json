@@ -1,0 +1,19 @@
+{
+  "name": "dsh-search-failover",
+  "version": "0.1.0",
+  "description": "Provider-level web search failover pool for DeepSeek Harness: rotate across free/paid backends (Exa / Tavily / DuckDuckGo) with quota-aware circuit breaking, keeping the native web_search tool.",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": { "default": "./lib/index.js" },
+    "./package.json": "./package.json"
+  },
+  "files": ["lib", "cordis.patch.yml", "README.md", "LICENSE"],
+  "license": "MIT",
+  "keywords": ["deepseek", "harness", "dsh", "dsh-plugin", "search", "failover", "circuit-breaker"],
+  "engines": { "node": ">=22" },
+  "scripts": { "test": "node --test" },
+  "dependencies": {},
+  "peerDependencies": { "@deepseek-ai/dsh-web": "^0.1.0-rc.6" },
+  "dsh": { "bundle": "cordis.patch.yml" }
+}
