@@ -39,13 +39,13 @@ dsh plugin --profile web add link:/Users/walve/Documents/Codex/dsh-search-failov
 
 | kind | 后端 | 免费额度 | key | 说明 |
 |---|---|---|---|---|
-| `exa` | Exa | 注册 $20 + $10/月; 教育 $1000 | 必须 | `apiKeyEnv: EXA_API_KEY` |
-| `tavily` | Tavily | 1000 积分/月 | 可选 | 无 key 自动走 keyless 匿名档 |
+| `exa` | Exa | 注册 $20 + $10/月; 教育 $1000 | 必须 | `apiKeyEnv: EXA_API_KEY` ✅ 实测可用 |
+| `tavily` | Tavily | 1000 积分/月 | 可选 | 无 key 自动走 keyless 匿名档 ✅ 实测可用 |
 | `serper` | Serper.dev | 2500 次一次性 | 必须 | Google SERP |
 | `serpapi` | SerpApi | 250 次/月 | 必须 | Google SERP |
 | `brave` | Brave | 2000 次/月 (注册要信用卡) | 必须 | |
-| `jina` | Jina s.jina.ai | 无 key 20 RPM / key 500 RPM | 可选 | markdown 解析 |
-| `ddg` | DuckDuckGo | 完全免费 | 无 | 非官方 HTML 端点, ToS 风险 |
+| `jina` | Jina s.jina.ai | 免费注册得 key | 必须 | ⚠️ 实测 2026-08 无 key 已 401, markdown 解析 |
+| `ddg` | DuckDuckGo | 完全免费 | 无 | ⚠️ 实测 2026-08 被反爬拦截 (202 anomaly), 视网络/IP 而定 |
 | `searxng` | SearXNG 自托管 | 完全免费 | 无 | `baseURL` 或 env `SEARXNG_BASE_URL`; 实例需开 `format: json` |
 
 每个后端通用字段: `id`(熔断/日志标识)、`kind`、`priority`(failover 顺序, 小者优先)、
@@ -72,10 +72,11 @@ dsh plugin --profile web add link:/Users/walve/Documents/Codex/dsh-search-failov
       - id: tavily-anon         # 无 key → Tavily keyless 匿名档
         kind: tavily
         priority: 3
-      - id: jina                # 无 key 免费档
+      - id: jina                # 免费注册 key 后可用
         kind: jina
+        apiKeyEnv: JINA_API_KEY
         priority: 4
-      - id: ddg                 # DuckDuckGo HTML, 完全免费
+      - id: ddg                 # DuckDuckGo HTML, 完全免费 (可能被反爬拦截)
         kind: ddg
         priority: 5
       - id: serpapi             # 250 次/月 (需 key)
@@ -109,10 +110,23 @@ npm test     # node:test, 无依赖
 - v0.2: 适配器扩展 — serper/serpapi/brave/jina/searxng ✅; rotate 完善、设置页 🔜
 - v0.3: multi/RRF 融合 + 设置页 UI + 发布 npm/GitHub/dshmarket
 
+## 真实网络验证 (2026-08-16 实测)
+
+```bash
+EXA_API_KEY=xxx node scripts/smoke.mjs [kind...]   # 逐个真实调用并打印结果
+```
+
+| kind | 实测结果 |
+|---|---|
+| `exa` (真实 key) | ✅ 5 条结果 ~2s |
+| `tavily` (keyless) | ✅ 5 条结果 ~2.8s, 匿名档可用 |
+| `jina` | ❌ 无 key 401 → 已改为必须 key |
+| `ddg` | ❌ html/lite 双端点均 202 anomaly (反爬), 浏览器 UA 无效 |
+
 ## 合规提示
 
-- DDG 走非官方 HTML 端点, 有 ToS 风险, 仅作个人兜底
-- Tavily keyless / Exa 匿名 MCP 均为官方免费档, 有限速
+- DDG 走非官方 HTML 端点, 有 ToS 风险, 实测已被反爬拦截, 仅作兜底
+- Tavily keyless / Exa 均为官方免费档, 有限速
 
 ## 致谢
 

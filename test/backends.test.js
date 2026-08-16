@@ -66,7 +66,7 @@ test('brave: header X-Subscription-Token + web.results 映射', async () => {
   } finally { restore() }
 })
 
-test('jina: markdown 解析 + 无 key 可用', async () => {
+test('jina: markdown 解析', async () => {
   let seen = null
   const restore = stubFetch(async (url, init) => {
     seen = { url, auth: init.headers.authorization }
@@ -83,25 +83,17 @@ test('jina: markdown 解析 + 无 key 可用', async () => {
     }
   })
   try {
-    const r = await backends.jina.search({}, { query: 'test', maxResults: 8 }, undefined)
+    const r = await backends.jina.search({ apiKey: 'jkey' }, { query: 'test', maxResults: 8 }, undefined)
     assert.ok(seen.url.endsWith('/test'))
-    assert.equal(seen.auth, undefined, '无 key 时不带 Authorization')
+    assert.equal(seen.auth, 'Bearer jkey')
     assert.equal(r.sources.length, 2)
     assert.equal(r.sources[0].title, 'Hello World')
     assert.ok(r.sources[0].snippet.includes('hello world'))
   } finally { restore() }
 })
 
-test('jina: 带 key 时走 Bearer', async () => {
-  let auth = null
-  const restore = stubFetch(async (_u, init) => {
-    auth = init.headers.authorization
-    return { text: '- [T](https://j.example)\n  d\n' }
-  })
-  try {
-    await backends.jina.search({ apiKey: 'jkey' }, { query: 'q' }, undefined)
-    assert.equal(auth, 'Bearer jkey')
-  } finally { restore() }
+test('jina: 无 key → auth 错误 (免费档已取消)', async () => {
+  await assert.rejects(() => backends.jina.search({}, { query: 'q' }, undefined), (e) => e.kind === 'auth')
 })
 
 test('searxng: GET format=json + 默认 localhost:8080 + baseURL 覆盖', async () => {
