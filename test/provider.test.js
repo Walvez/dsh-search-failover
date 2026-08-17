@@ -98,6 +98,27 @@ test('超时 → 换下一个后端', async () => {
   assert.equal(r.sources[0].url, 'https://b.example')
 })
 
+test('日志: 成功记 info, 失败记 warn, 熔断打开记 warn(circuit opened)', async () => {
+  const lines = []
+  const logger = {
+    info: (m) => lines.push(['info', m]),
+    warn: (m) => lines.push(['warn', m]),
+    error: (m) => lines.push(['error', m]),
+  }
+  const registry = makeRegistry({
+    a: fail('transient'),
+    b: ok([{ url: 'https://b.example', title: 'B' }]),
+  })
+  const p = new SearchPoolProvider(() => ({
+    backends: [{ id: 'a', kind: 'a', priority: 1 }, { id: 'b', kind: 'b', priority: 2 }],
+    circuit: { threshold: 1, burstWindowMs: 60_000, cooldownMs: 60_000 },
+  }), registry, logger)
+  await p.search({ query: 'x', maxResults: 8 })
+  assert.ok(lines.some(([lvl, m]) => lvl === 'warn' && m.includes('a failed')), '失败 warn 含后端 id')
+  assert.ok(lines.some(([lvl, m]) => lvl === 'warn' && m.includes('circuit opened for a')), '熔断打开 warn')
+  assert.ok(lines.some(([lvl, m]) => lvl === 'info' && m.includes('ok via b')), '成功 info 含后端 id')
+})
+
 test('冷却到期 → 半开探活 → 成功恢复', async () => {
   let fail = true
   const registry = makeRegistry({
