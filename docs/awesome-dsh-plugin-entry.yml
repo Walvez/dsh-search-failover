@@ -1,0 +1,12 @@
+# awesome-dsh-plugin 收录条目草稿
+# 提交方式: PR 到 https://github.com/awesome-dsh-plugin/awesome-dsh-plugin
+# 放置: data/plugins/Walvez__dsh-search-failover.yml
+# 门槛: 仓库满 1 天 + ≥10 提交 + 声明 dsh.bundle + topic: dsh-plugin(已加)
+# 就绪后: fork → 添加该文件 → node scripts/generate-readme.mjs → 提交 PR
+
+url: https://github.com/Walvez/dsh-search-failover
+name: Walvez/dsh-search-failover
+category: tools
+description:
+  en: Provider-level web search failover pool that keeps the native web_search tool: rotates across 8 free/paid backends (Exa, Tavily, Serper, SerpApi, Jina, DuckDuckGo, SearXNG) with quota-aware circuit breaking and per-backend cooldown.
+  zh: 保留原生 web_search 工具的搜索池：自动轮询 Exa、Tavily、Serper、SerpApi、Jina 等 8 个免费/付费搜索后端，失败自动降级，额度耗尽后端自动熔断冷却。
