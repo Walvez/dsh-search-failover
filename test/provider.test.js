@@ -111,9 +111,10 @@ test('日志: 成功记 info, 失败记 warn, 熔断打开记 warn(circuit opene
   })
   const p = new SearchPoolProvider(() => ({
     backends: [{ id: 'a', kind: 'a', priority: 1 }, { id: 'b', kind: 'b', priority: 2 }],
-    circuit: { threshold: 1, burstWindowMs: 60_000, cooldownMs: 60_000 },
+    circuit: { threshold: 2, burstWindowMs: 60_000, cooldownMs: 60_000 },
   }), registry, logger)
-  await p.search({ query: 'x', maxResults: 8 })
+  await p.search({ query: 'x', maxResults: 8 })   // 第1次: a failed
+  await p.search({ query: 'x', maxResults: 8 })   // 第2次: a 达阈值开断
   assert.ok(lines.some(([lvl, m]) => lvl === 'warn' && m.includes('a failed')), '失败 warn 含后端 id')
   assert.ok(lines.some(([lvl, m]) => lvl === 'warn' && m.includes('circuit opened for a')), '熔断打开 warn')
   assert.ok(lines.some(([lvl, m]) => lvl === 'info' && m.includes('ok via b')), '成功 info 含后端 id')
