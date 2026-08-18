@@ -140,3 +140,24 @@ test('冷却到期 → 半开探活 → 成功恢复', async () => {
   const out = await p.search({ query: 'x' })
   assert.equal(out.sources[0].url, 'https://f.example', '探活成功恢复主后端')
 })
+
+test('rotate: 加权轮询 — weight 2 的后端出现频率两倍', async () => {
+  const calls = []
+  const adapters = {
+    a: { search: async () => { calls.push('a'); return { sources: [{ url: 'u' }] } } },
+    b: { search: async () => { calls.push('b'); return { sources: [{ url: 'u' }] } } },
+  }
+  const config = {
+    strategy: 'rotate',
+    backends: [
+      { id: 'a', kind: 'a', priority: 1, weight: 2 },
+      { id: 'b', kind: 'b', priority: 2, weight: 1 },
+    ],
+  }
+  const p = new SearchPoolProvider(() => config, adapters)
+  for (let i = 0; i < 6; i++) await p.search({ query: 'q', maxResults: 3 })
+  const a = calls.filter((x) => x === 'a').length
+  const b = calls.filter((x) => x === 'b').length
+  assert.equal(a, 4)
+  assert.equal(b, 2)
+})

@@ -155,3 +155,12 @@ test('installSearchPoolSettings: 保存后 source() 实时反映 (热生效)', (
   const merged2 = mergeConfigWithSettings(baseConfig(), source())
   assert.equal(merged2.backends[0].apiKey, 'from-env')
 })
+test('mergeConfigWithSettings: removed 过滤行内后端 (删除内置后恢复可清标记)', () => {
+  const base = baseConfig()
+  const removed = mergeConfigWithSettings(base, { ...normalizeConfig(base), removed: ['exa'] })
+  assert.equal(removed.backends.some((b) => b.id === 'exa'), false)
+  assert.equal(removed.backends.length, 1)
+  const restored = mergeConfigWithSettings(base, { ...normalizeConfig(base), removed: [] })
+  assert.equal(restored.backends.some((b) => b.id === 'exa'), true)
+  assert.equal(restored.backends.length, 2)
+})
