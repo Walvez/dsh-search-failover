@@ -12,7 +12,7 @@
  * host half (the web client settings seam refuses third-party namespaces,
  * so we never touch settingsScope in the browser).
  */
-window.__ModuleLoader__.load({ id: 'dsh-search-failover-client', factory: (require) => {
+window.__ModuleLoader__.load({ id: 'dsh-search-failover', factory: (require) => {
 var module = { exports: {} }
 var exports = module.exports
 'use strict'
@@ -207,7 +207,7 @@ function SearchPoolSection({ t }) {
   )
 }
 
-const name = 'dsh-search-failover-client'
+const name = 'dsh-search-failover'
 const inject = ['slots', 'locale']
 
 function apply(ctx) {
