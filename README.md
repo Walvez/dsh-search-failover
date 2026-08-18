@@ -103,17 +103,31 @@ dsh plugin --profile web add link:/Users/walve/Documents/Codex/dsh-search-failov
       quotaCooldownMs: 3600000
 ```
 
+## 设置页 (v0.3+)
+
+GUI 内管理所有后端的 API Key: **设置 → 搜索池**, 每个后端一行,
+填 key 点保存即写入 `settings.yaml` user 层并**立即生效 (无需重启)** —
+provider 每次搜索实时读取配置。页面还实时显示每个后端的熔断/冷却状态
+(正常 / 冷却中 / 额度冷却 + 倒计时), 以及 key 是否已配置。
+
+- 保存路径: `POST /search-pool/keys` (same-origin 校验) → `settings.update`
+- 恢复默认: `POST /search-pool/reset` → `settings.replace({})`, 回退到行内配置
+- 状态查询: `GET /search-pool/state` (no-store)
+- 优先级: 设置页保存的 `apiKey` > 行内 `apiKey` > `apiKeyEnv` 环境变量
+- 密钥只存在本机 `~/.dsh/settings.yaml`, 绝不进 git / 不上报
+
 ## 测试
 
 ```bash
-npm test     # node:test, 无依赖
+npm test     # node:test, 纯逻辑无网络
 ```
 
 ## 路线
 
 - v0.1: failover + exa/tavily/ddg + 熔断 ✅
-- v0.2: 适配器扩展 — serper/serpapi/brave/jina/searxng ✅; rotate 完善、设置页 🔜
-- v0.3: multi/RRF 融合 + 设置页 UI + 发布 npm/GitHub/dshmarket
+- v0.2: 适配器扩展 — serper/serpapi/brave/jina/searxng ✅; 故障演练+console 日志 ✅
+- v0.3: 设置页 UI (GUI 填 key 热生效) ✅; 发布 npm/GitHub ✅; 收录 awesome-dsh-plugin ✅
+- v0.4: multi/RRF 融合 🔜 | rotate 分散额度 🔜
 
 ## 真实网络验证 (2026-08-16 实测)
 
