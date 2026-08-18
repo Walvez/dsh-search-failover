@@ -83,3 +83,36 @@ test('state(): 透传适配器 site (官网/配置页链接)', () => {
   assert.equal(s.backends[0].site, 'https://dashboard.exa.ai/api-keys')
   assert.equal(s.backends[1].site, null)
 })
+test('state(): 输出按 priority 排序 (UI 顺序 = 优先级顺序)', () => {
+  const config = {
+    strategy: 'failover',
+    backends: [
+      { id: 'c', kind: 'ddg', priority: 99, weight: 1 },
+      { id: 'a', kind: 'exa', priority: 1, apiKey: 'k', weight: 1 },
+      { id: 'b', kind: 'tavily', priority: 2, apiKey: 'k', weight: 1 },
+    ],
+  }
+  const p = new SearchPoolProvider(() => config, {})
+  const ids = p.state().backends.map((b) => b.id)
+  assert.deepEqual(ids, ['a', 'b', 'c'])
+})
+
+test('state(): 重排后 priority 重写 → 新顺序 (模拟↑↓)', () => {
+  let cfg = {
+    strategy: 'failover',
+    backends: [
+      { id: 'a', kind: 'exa', priority: 1, apiKey: 'k' },
+      { id: 'b', kind: 'tavily', priority: 2, apiKey: 'k' },
+    ],
+  }
+  const p = new SearchPoolProvider(() => cfg, {})
+  // 模拟路由 order 重排: 交换顺序并重写 priority
+  cfg = {
+    ...cfg,
+    backends: [
+      { ...cfg.backends[1], priority: 1 },
+      { ...cfg.backends[0], priority: 2 },
+    ],
+  }
+  assert.deepEqual(p.state().backends.map((b) => b.id), ['b', 'a'])
+})
