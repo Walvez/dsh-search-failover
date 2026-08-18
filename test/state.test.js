@@ -51,3 +51,21 @@ test('state(): 成功后闭合', () => {
   const s = p.state()
   assert.equal(s.backends[0].state, 'closed')
 })
+
+test('state(): 透传适配器 site (官网/配置页链接)', () => {
+  const config = {
+    strategy: 'failover',
+    backends: [
+      { id: 'exa', kind: 'exa', apiKey: 'k' },
+      { id: 'ddg', kind: 'ddg' },
+    ],
+  }
+  const adapters = {
+    exa: { site: 'https://dashboard.exa.ai/api-keys', search: async () => ({ sources: [] }) },
+    ddg: { search: async () => ({ sources: [] }) },
+  }
+  const p = new SearchPoolProvider(() => config, adapters)
+  const s = p.state()
+  assert.equal(s.backends[0].site, 'https://dashboard.exa.ai/api-keys')
+  assert.equal(s.backends[1].site, null)
+})

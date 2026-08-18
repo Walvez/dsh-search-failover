@@ -75,6 +75,11 @@ const badge = (color) => ({
   display: 'inline-block', padding: '1px 8px', borderRadius: '10px',
   fontSize: '12px', color: '#fff', background: color,
 })
+const link = {
+  color: 'inherit', textDecoration: 'underline', textUnderlineOffset: '3px',
+  cursor: 'pointer', display: 'inline-block',
+}
+const linkMuted = { color: 'inherit', textDecoration: 'none', cursor: 'default', display: 'inline-block' }
 const input = {
   width: '100%', boxSizing: 'border-box', padding: '6px 10px',
   borderRadius: '6px', border: '1px solid rgba(128,128,128,0.35)',
@@ -165,8 +170,16 @@ function SearchPoolSection({ t }) {
     React.createElement('h4', { style: { margin: '12px 0 6px', fontWeight: 600 } }, t('keysTitle')),
     React.createElement('div', null,
       backends.map((b) => React.createElement('div', { key: b.id, style: row },
-        React.createElement('div', { style: { ...cell, flex: '0 0 110px' } },
-          React.createElement('span', { style: { fontWeight: 600 } }, b.id),
+        React.createElement('div', { style: { ...cell, flex: '0 0 120px' } },
+          b.site
+            ? React.createElement('a', {
+                href: b.site,
+                target: '_blank',
+                rel: 'noopener noreferrer',
+                style: link,
+                title: b.site,
+              }, b.id)
+            : React.createElement('span', { style: { ...linkMuted, fontWeight: 600 } }, b.id),
           React.createElement('div', { style: { opacity: 0.6, fontSize: '12px' } }, b.kind),
         ),
         React.createElement('div', { style: cell },
