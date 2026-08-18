@@ -161,3 +161,28 @@ test('rotate: 加权轮询 — weight 2 的后端出现频率两倍', async () =
   assert.equal(a, 4)
   assert.equal(b, 2)
 })
+
+test('probe: 真实轻量搜索 + 计时 + 结果计数', async () => {
+  let seen = null
+  const adapters = {
+    a: { search: async (backend, req, signal) => { seen = { backend, req, signal }; return { sources: [{ url: 'u1' }, { url: 'u2' }] } } },
+  }
+  const config = { backends: [{ id: 'a', kind: 'a', priority: 1, apiKey: 'k' }] }
+  const p = new SearchPoolProvider(() => config, adapters)
+  const r = await p.probe('a')
+  assert.equal(r.ok, true)
+  assert.equal(r.sources, 2)
+  assert.equal(typeof r.ms, 'number')
+  assert.equal(seen.req.query, 'search pool connectivity test')
+  assert.equal(seen.req.maxResults, 1)
+  assert.ok(seen.signal)
+})
+
+test('probe: 未知 id / 未知 kind / 失败传播', async () => {
+  const config = { backends: [{ id: 'a', kind: 'a', priority: 1 }] }
+  const p = new SearchPoolProvider(() => config, { a: { search: async () => { throw new Error('boom probe') } } })
+  await assert.rejects(() => p.probe('nope'), /unknown backend id/)
+  await assert.rejects(() => p.probe('a'), /boom probe/)
+  const p2 = new SearchPoolProvider(() => ({ backends: [{ id: 'x', kind: 'ghost' }] }), {})
+  await assert.rejects(() => p2.probe('x'), /unknown backend kind/)
+})

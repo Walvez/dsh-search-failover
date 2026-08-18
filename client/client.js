@@ -71,6 +71,9 @@ const LS = {
     moveDown: '下移',
     weightLabel: '权重',
     weightHint: '轮询模式下按权重分配搜索次数 (1-10)',
+    test: '测试',
+    testing: '测试中…',
+    testOk: '可用',
   },
   en: {
     nav: 'Search Pool',
@@ -122,6 +125,9 @@ const LS = {
     moveDown: 'Move down',
     weightLabel: 'Weight',
     weightHint: 'In rotate mode searches are distributed by weight (1-10).',
+    test: 'Test',
+    testing: 'Testing…',
+    testOk: 'healthy',
   },
 }
 
@@ -164,6 +170,8 @@ function SearchPoolSection({ t }) {
   const [showAdd, setShowAdd] = useState(false)
   const [addForm, setAddForm] = useState({ id: '', kind: 'searxng', baseURL: '', apiKey: '' })
   const [quota, setQuota] = useState(null)
+  const [testBusy, setTestBusy] = useState(null)
+  const [testResults, setTestResults] = useState({})
 
   const load = useCallback(async () => {
     setError('')
@@ -350,6 +358,23 @@ function SearchPoolSection({ t }) {
     }
   }
 
+  const testBackend = async (id) => {
+    setTestBusy(id)
+    try {
+      const res = await fetch('/search-pool/test', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ id }),
+      })
+      const data = await res.json()
+      setTestResults((r) => ({ ...r, [id]: data }))
+    } catch (e) {
+      setTestResults((r) => ({ ...r, [id]: { ok: false, error: String(e.message || e) } }))
+    } finally {
+      setTestBusy(null)
+    }
+  }
+
   const removeBackend = async (id) => {
     setBusy(true)
     setMsg('')
@@ -418,6 +443,11 @@ function SearchPoolSection({ t }) {
             }, t('customTag')),
             React.createElement('div', { style: { opacity: 0.6, fontSize: '12px' } }, b.kind),
             quotaText && React.createElement('div', { style: { fontSize: '11px', color: '#2f9e44', marginTop: '2px' } }, quotaText),
+            testResults[b.id] && React.createElement('div', { style: { fontSize: '11px', marginTop: '2px', color: testResults[b.id].ok ? '#2f9e44' : '#e8590c' } },
+              testResults[b.id].ok
+                ? '✓ ' + t('testOk') + ' ' + testResults[b.id].sources + ' · ' + testResults[b.id].ms + 'ms'
+                : '✗ ' + (testResults[b.id].error ?? t('quotaError')),
+            ),
           ),
           React.createElement('div', { style: cell },
             React.createElement('input', {
@@ -447,6 +477,14 @@ function SearchPoolSection({ t }) {
               value: b.weight ?? 1,
               onChange: (e) => setWeight(b.id, e.target.value),
             }),
+          ),
+          React.createElement('div', { style: { flex: '0 0 44px', textAlign: 'center' } },
+            React.createElement('button', {
+              style: iconBtn,
+              title: t('test'),
+              disabled: busy || testBusy !== null,
+              onClick: () => testBackend(b.id),
+            }, testBusy === b.id ? '…' : '▶'),
           ),
           React.createElement('div', { style: { flex: '0 0 52px', textAlign: 'center' } },
             React.createElement('button', { style: iconBtn, title: t('moveUp'), disabled: busy || idx === 0, onClick: () => moveBackend(b.id, -1) }, '↑'),
