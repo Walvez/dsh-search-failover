@@ -53,6 +53,20 @@ const LS = {
     addFailed: '添加失败：',
     removeFailed: '删除失败：',
     cancel: '取消',
+    strategyTitle: '使用方式',
+    strategyDesc: '优先顺序：按 priority 依次尝试，前一个失败才用下一个。轮询分摊：搜索平均分到健康后端，分散免费额度。',
+    failover: '优先顺序',
+    rotate: '轮询分摊',
+    strategySaved: '策略已保存，立即生效',
+    quotaTitle: '额度（实时查询）',
+    quotaLoading: '查询中…',
+    quotaNoApi: '无公开额度接口',
+    quotaError: '查询失败',
+    quotaPlan: '套餐',
+    quotaUsed: '本 30 天已用',
+    quotaLeft: '剩余',
+    quotaReset: '重置日',
+    refreshQuota: '刷新',
   },
   en: {
     nav: 'Search Pool',
@@ -86,6 +100,20 @@ const LS = {
     addFailed: 'Add failed: ',
     removeFailed: 'Remove failed: ',
     cancel: 'Cancel',
+    strategyTitle: 'Strategy',
+    strategyDesc: 'Failover tries backends by priority; rotate round-robins searches across healthy backends to spread free quotas.',
+    failover: 'Failover',
+    rotate: 'Rotate',
+    strategySaved: 'Strategy saved, effective now',
+    quotaTitle: 'Quota (live)',
+    quotaLoading: 'Checking…',
+    quotaNoApi: 'no quota API',
+    quotaError: 'query failed',
+    quotaPlan: 'Plan',
+    quotaUsed: 'Used (30d)',
+    quotaLeft: 'Left',
+    quotaReset: 'Resets',
+    refreshQuota: 'Refresh',
   },
 }
 
@@ -127,6 +155,8 @@ function SearchPoolSection({ t }) {
   const [msgErr, setMsgErr] = useState(false)
   const [showAdd, setShowAdd] = useState(false)
   const [addForm, setAddForm] = useState({ id: '', baseURL: '', apiKey: '' })
+  const [quota, setQuota] = useState(null)
+  const [quotaBusy, setQuotaBusy] = useState(false)
 
   const load = useCallback(async () => {
     setError('')
@@ -140,6 +170,43 @@ function SearchPoolSection({ t }) {
   }, [t])
 
   useEffect(() => { load() }, [load])
+
+  const loadQuota = useCallback(async () => {
+    setQuotaBusy(true)
+    try {
+      const res = await fetch('/search-pool/quota', { cache: 'no-store' })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      setQuota(await res.json())
+    } catch (e) {
+      setQuota(null)
+    } finally {
+      setQuotaBusy(false)
+    }
+  }, [])
+
+  useEffect(() => { loadQuota() }, [loadQuota])
+
+  const saveStrategy = async (strategy) => {
+    setBusy(true)
+    setMsg('')
+    try {
+      const res = await fetch('/search-pool/config', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ strategy }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`)
+      setMsg(t('strategySaved'))
+      setMsgErr(false)
+      load()
+    } catch (e) {
+      setMsg(t('saveFailed') + String(e.message || e))
+      setMsgErr(true)
+    } finally {
+      setBusy(false)
+    }
+  }
 
   const save = async () => {
     setBusy(true)
@@ -249,8 +316,21 @@ function SearchPoolSection({ t }) {
   }
 
   const backends = state?.backends ?? []
+  const strategy = state?.strategy ?? 'failover'
   return React.createElement('div', { style: { padding: '4px 2px', fontSize: '13px', lineHeight: 1.6 } },
     React.createElement('p', { style: { color: 'inherit', opacity: 0.75, margin: '0 0 14px' } }, t('desc')),
+    React.createElement('h4', { style: { margin: '12px 0 6px', fontWeight: 600 } }, t('strategyTitle')),
+    React.createElement('p', { style: { margin: '0 0 8px', opacity: 0.7 } }, t('strategyDesc')),
+    React.createElement('div', { style: { display: 'flex', gap: '8px', marginBottom: '16px' } },
+      ['failover', 'rotate'].map((s) => React.createElement('button', {
+        key: s,
+        style: s === strategy
+          ? { ...button, opacity: busy ? 0.6 : 1 }
+          : buttonGhost,
+        disabled: busy,
+        onClick: () => saveStrategy(s),
+      }, t(s === 'failover' ? 'failover' : 'rotate'))),
+    ),
     React.createElement('h4', { style: { margin: '12px 0 6px', fontWeight: 600 } }, t('keysTitle')),
     React.createElement('div', null,
       backends.map((b) => React.createElement('div', { key: b.id, style: row },
@@ -303,6 +383,26 @@ function SearchPoolSection({ t }) {
       )),
       state === null && !error && React.createElement('div', { style: { opacity: 0.6 } }, t('loading')),
       backends.length === 0 && state !== null && React.createElement('div', { style: { opacity: 0.6 } }, '( )'),
+    ),
+    React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '10px', marginTop: '16px' } },
+      React.createElement('h4', { style: { margin: '0', fontWeight: 600 } }, t('quotaTitle')),
+      React.createElement('button', { style: buttonGhost, disabled: quotaBusy, onClick: loadQuota }, t('refreshQuota')),
+    ),
+    React.createElement('div', { style: { marginTop: '6px' } },
+      quotaBusy && React.createElement('div', { style: { opacity: 0.6 } }, t('quotaLoading')),
+      !quotaBusy && state !== null && backends.map((b) => {
+        const q = quota?.quota?.[b.id]
+        let text
+        if (q === undefined || q === null) text = t('quotaNoApi')
+        else if (q.error) text = t('quotaError') + ': ' + q.error
+        else text = t('quotaPlan') + ' ' + q.plan + ' · ' + t('quotaUsed') + ' ' + q.used + '/' + q.limit +
+          (q.remaining !== null ? ' · ' + t('quotaLeft') + ' ' + q.remaining : '') +
+          (q.resetAt ? ' · ' + t('quotaReset') + ' ' + q.resetAt : '')
+        return React.createElement('div', { key: b.id, style: { display: 'flex', gap: '10px', padding: '4px 0', fontSize: '12px', opacity: q && !q.error ? 1 : 0.6 } },
+          React.createElement('span', { style: { flex: '0 0 140px', fontWeight: 600 } }, b.id),
+          React.createElement('span', null, text),
+        )
+      }),
     ),
     React.createElement('button', {
       style: { ...buttonGhost, marginTop: '10px' },

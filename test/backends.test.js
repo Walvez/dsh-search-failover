@@ -160,3 +160,27 @@ test('tavily: 有 key 走 Bearer, 无 key 走 keyless 头', async () => {
     assert.equal(seen[1].authorization, undefined)
   } finally { restore() }
 })
+
+test('serpapi usage: 解析 /account 额度', async () => {
+  const restore = stubFetch(async () => ({
+    json: {
+      plan_id: 'free', plan_name: 'Free Plan', searches_per_month: 250,
+      this_month_usage: 2, total_searches_left: 248, plan_renewal_date: '2026-09-16',
+    },
+  }))
+  try {
+    const r = await backends.serpapi.usage({ apiKey: 'demo-key' })
+    assert.equal(r.plan, 'Free Plan')
+    assert.equal(r.used, 2)
+    assert.equal(r.limit, 250)
+    assert.equal(r.remaining, 248)
+    assert.equal(r.resetAt, '2026-09-16')
+  } finally { restore() }
+})
+
+test('serpapi usage: 无 key → auth 错误', async () => {
+  const restore = stubFetch(async () => ({ json: {} }))
+  try {
+    await assert.rejects(() => backends.serpapi.usage({ apiKey: '' }), /no API key/)
+  } finally { restore() }
+})
