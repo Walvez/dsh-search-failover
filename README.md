@@ -114,6 +114,8 @@ provider 每次搜索实时读取配置。页面还实时显示每个后端的�
 - 恢复默认: `POST /search-pool/reset` → `settings.replace({})`, 回退到行内配置
 - 状态查询: `GET /search-pool/state` (no-store)
 - 优先级: 设置页保存的 `apiKey` > 行内 `apiKey` > `apiKeyEnv` 环境变量
+- **自定义后端**: 页面底部「添加自定义后端」可加入任意自托管 SearXNG 实例
+  (唯一名称 + baseURL, 可选 key), 保存即热生效; 自定义条目带「自定义」标记, 可一键删除。
 - 密钥只存在本机 `~/.dsh/settings.yaml`, 绝不进 git / 不上报
 
 ## 测试

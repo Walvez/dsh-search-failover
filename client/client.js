@@ -43,6 +43,16 @@ const LS = {
     resetDone: '已恢复默认（行内配置）',
     loading: '加载中…',
     loadFailed: '读取失败：',
+    customTag: '自定义',
+    addTitle: '添加自定义后端',
+    addDesc: '支持自托管 SearXNG 实例：填一个唯一名称和服务地址即可加入搜索池，无需改配置文件。',
+    addName: '名称（唯一 id）',
+    addUrl: '服务地址 (baseURL)',
+    addKey: 'API Key（可选）',
+    addBtn: '添加',
+    addFailed: '添加失败：',
+    removeFailed: '删除失败：',
+    cancel: '取消',
   },
   en: {
     nav: 'Search Pool',
@@ -66,6 +76,16 @@ const LS = {
     resetDone: 'Reset to inline config',
     loading: 'Loading…',
     loadFailed: 'Load failed: ',
+    customTag: 'custom',
+    addTitle: 'Add custom backend',
+    addDesc: 'Add a self-hosted SearXNG instance: give it a unique name and base URL to join the pool — no config file edits.',
+    addName: 'Name (unique id)',
+    addUrl: 'Base URL',
+    addKey: 'API Key (optional)',
+    addBtn: 'Add',
+    addFailed: 'Add failed: ',
+    removeFailed: 'Remove failed: ',
+    cancel: 'Cancel',
   },
 }
 
@@ -105,6 +125,8 @@ function SearchPoolSection({ t }) {
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState('')
   const [msgErr, setMsgErr] = useState(false)
+  const [showAdd, setShowAdd] = useState(false)
+  const [addForm, setAddForm] = useState({ id: '', baseURL: '', apiKey: '' })
 
   const load = useCallback(async () => {
     setError('')
@@ -164,13 +186,75 @@ function SearchPoolSection({ t }) {
     }
   }
 
+  const post = async (payload, okMsg) => {
+    setBusy(true)
+    setMsg('')
+    try {
+      const res = await fetch('/search-pool/keys', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`)
+      setMsg(okMsg)
+      setMsgErr(false)
+      setKeys({})
+      load()
+      return true
+    } catch (e) {
+      setMsg(t('saveFailed') + String(e.message || e))
+      setMsgErr(true)
+      return false
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const addBackend = async () => {
+    const id = addForm.id.trim()
+    const baseURL = addForm.baseURL.trim()
+    if (!id || !baseURL) {
+      setMsg(t('addFailed') + 'id/baseURL required')
+      setMsgErr(true)
+      return
+    }
+    const ok = await post(
+      { adds: [{ id, kind: 'searxng', baseURL, apiKey: addForm.apiKey.trim() }] },
+      t('saved'),
+    )
+    if (ok !== false) { setShowAdd(false); setAddForm({ id: '', baseURL: '', apiKey: '' }) }
+  }
+
+  const removeBackend = async (id) => {
+    setBusy(true)
+    setMsg('')
+    try {
+      const res = await fetch('/search-pool/keys', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ removes: [id] }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`)
+      setMsg(t('saved'))
+      setMsgErr(false)
+      load()
+    } catch (e) {
+      setMsg(t('removeFailed') + String(e.message || e))
+      setMsgErr(true)
+    } finally {
+      setBusy(false)
+    }
+  }
+
   const backends = state?.backends ?? []
   return React.createElement('div', { style: { padding: '4px 2px', fontSize: '13px', lineHeight: 1.6 } },
     React.createElement('p', { style: { color: 'inherit', opacity: 0.75, margin: '0 0 14px' } }, t('desc')),
     React.createElement('h4', { style: { margin: '12px 0 6px', fontWeight: 600 } }, t('keysTitle')),
     React.createElement('div', null,
       backends.map((b) => React.createElement('div', { key: b.id, style: row },
-        React.createElement('div', { style: { ...cell, flex: '0 0 120px' } },
+        React.createElement('div', { style: { ...cell, flex: '0 0 140px' } },
           b.site
             ? React.createElement('a', {
                 href: b.site,
@@ -180,6 +264,9 @@ function SearchPoolSection({ t }) {
                 title: b.site,
               }, b.id)
             : React.createElement('span', { style: { ...linkMuted, fontWeight: 600 } }, b.id),
+          b.custom && React.createElement('span', {
+            style: { display: 'inline-block', marginLeft: '6px', padding: '0 6px', borderRadius: '8px', background: 'rgba(127,127,127,0.25)', fontSize: '11px', verticalAlign: 'middle' },
+          }, t('customTag')),
           React.createElement('div', { style: { opacity: 0.6, fontSize: '12px' } }, b.kind),
         ),
         React.createElement('div', { style: cell },
@@ -202,9 +289,51 @@ function SearchPoolSection({ t }) {
             ? React.createElement('span', { style: { color: '#2f9e44' } }, t('hasKey'))
             : React.createElement('span', { style: { color: '#e8590c' } }, t('noKey')),
         ),
+        React.createElement('div', { style: { flex: '0 0 32px', textAlign: 'center' } },
+          b.custom && React.createElement('button', {
+            style: {
+              border: '0', background: 'transparent', color: 'inherit', cursor: 'pointer',
+              fontSize: '13px', opacity: 0.7, padding: '2px 6px', borderRadius: '6px',
+            },
+            title: 'remove',
+            disabled: busy,
+            onClick: () => removeBackend(b.id),
+          }, '✕'),
+        ),
       )),
       state === null && !error && React.createElement('div', { style: { opacity: 0.6 } }, t('loading')),
       backends.length === 0 && state !== null && React.createElement('div', { style: { opacity: 0.6 } }, '( )'),
+    ),
+    React.createElement('button', {
+      style: { ...buttonGhost, marginTop: '10px' },
+      disabled: busy,
+      onClick: () => setShowAdd((v) => !v),
+    }, showAdd ? t('cancel') + ' · ' + t('addTitle') : t('addTitle')),
+    showAdd && React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '10px', border: '1px solid rgba(128,128,128,0.25)', borderRadius: '8px', padding: '12px' } },
+      React.createElement('p', { style: { margin: '0', opacity: 0.75 } }, t('addDesc')),
+      React.createElement('input', {
+        style: input,
+        placeholder: t('addName'),
+        value: addForm.id,
+        onChange: (e) => setAddForm((f) => ({ ...f, id: e.target.value })),
+      }),
+      React.createElement('input', {
+        style: input,
+        placeholder: t('addUrl'),
+        value: addForm.baseURL,
+        onChange: (e) => setAddForm((f) => ({ ...f, baseURL: e.target.value })),
+      }),
+      React.createElement('input', {
+        style: input,
+        type: 'password',
+        placeholder: t('addKey'),
+        value: addForm.apiKey,
+        onChange: (e) => setAddForm((f) => ({ ...f, apiKey: e.target.value })),
+      }),
+      React.createElement('div', { style: { display: 'flex', gap: '10px' } },
+        React.createElement('button', { style: { ...button, opacity: busy ? 0.6 : 1 }, disabled: busy, onClick: addBackend }, t('addBtn')),
+        React.createElement('button', { style: buttonGhost, disabled: busy, onClick: () => setShowAdd(false) }, t('cancel')),
+      ),
     ),
     React.createElement('div', { style: { display: 'flex', gap: '10px', marginTop: '14px', alignItems: 'center' } },
       React.createElement('button', {

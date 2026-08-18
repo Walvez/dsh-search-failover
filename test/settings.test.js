@@ -45,6 +45,29 @@ test('mergeSettingsBackend: 非空覆盖 / 空串保留 / 无 patch 原样', () 
   assert.deepEqual(mergeSettingsBackend(b, null), b)
 })
 
+test('mergeConfigWithSettings: settings 中的新 id 追加为自定义后端 (可删除还原)', () => {
+  const base = baseConfig()
+  const s = {
+    ...base,
+    backends: [
+      { id: 'exa', kind: 'exa', priority: 1, apiKey: 'saved', baseURL: '' },
+      { id: 'my-searx', kind: 'searxng', priority: 99, apiKey: '', baseURL: 'http://192.168.1.10:8888' },
+    ],
+  }
+  const merged = mergeConfigWithSettings(base, s)
+  assert.equal(merged.backends.length, 3)
+  const custom = merged.backends.find((b) => b.id === 'my-searx')
+  assert.equal(custom.custom, true)
+  assert.equal(custom.kind, 'searxng')
+  assert.equal(custom.baseURL, 'http://192.168.1.10:8888')
+  assert.equal(custom.priority, 99)
+  // 内置后端不打 custom 标记
+  assert.equal(merged.backends.find((b) => b.id === 'exa').custom, undefined)
+  // 自定义从 settings 移除 → 回归行内 2 个
+  const merged2 = mergeConfigWithSettings(base, { ...s, backends: [] })
+  assert.equal(merged2.backends.length, 2)
+})
+
 test('mergeConfigWithSettings: 行内完整字段保留 + settings 覆盖 + circuit 合并', () => {
   const base = baseConfig()
   const s = {

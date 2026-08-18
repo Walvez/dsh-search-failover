@@ -52,6 +52,20 @@ test('state(): 成功后闭合', () => {
   assert.equal(s.backends[0].state, 'closed')
 })
 
+test('state(): 自定义后端透传 custom 标记', () => {
+  const config = {
+    strategy: 'failover',
+    backends: [
+      { id: 'my-searx', kind: 'searxng', custom: true, baseURL: 'http://localhost:8080' },
+      { id: 'exa', kind: 'exa', apiKey: 'k' },
+    ],
+  }
+  const p = new SearchPoolProvider(() => config, {})
+  const s = p.state()
+  assert.equal(s.backends[0].custom, true)
+  assert.equal(s.backends[1].custom, false)
+})
+
 test('state(): 透传适配器 site (官网/配置页链接)', () => {
   const config = {
     strategy: 'failover',
