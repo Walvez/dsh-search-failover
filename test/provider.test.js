@@ -186,3 +186,55 @@ test('probe: 未知 id / 未知 kind / 失败传播', async () => {
   const p2 = new SearchPoolProvider(() => ({ backends: [{ id: 'x', kind: 'ghost' }] }), {})
   await assert.rejects(() => p2.probe('x'), /unknown backend kind/)
 })
+
+test('failover: 首源结果不足 → 自动追加后续后端并合并去重', async () => {
+  const calls = []
+  const adapters = {
+    exa: { search: async () => { calls.push('exa'); return { sources: [{ url: 'u1' }, { url: 'u2' }] } } },
+    serper: { search: async () => { calls.push('serper'); return { sources: [{ url: 'u2' }, { url: 'u3' }, { url: 'u4' }] } } },
+    ddg: { search: async () => { calls.push('ddg'); return { sources: [{ url: 'u5' }] } } },
+  }
+  const config = { strategy: 'failover', mergeThreshold: 3, backends: [
+    { id: 'exa', kind: 'exa', priority: 1, apiKey: 'k' },
+    { id: 'serper', kind: 'serper', priority: 2, apiKey: 'k' },
+    { id: 'ddg', kind: 'ddg', priority: 3 },
+  ] }
+  const p = new SearchPoolProvider(() => config, adapters)
+  const r = await p.search({ query: 'q', maxResults: 8 })
+  // exa 2 条 < 阈值 3 → 继续 serper (3条, 含重复u2) → 到 4 条 ≥3 停, 不再用 ddg
+  assert.deepEqual(calls, ['exa', 'serper'])
+  assert.deepEqual(p.state() ? r.providers : r.providers, ['exa', 'serper'])
+  assert.deepEqual(r.sources.map((s) => s.url), ['u1', 'u2', 'u3', 'u4'])
+})
+
+test('failover: 首源结果充足 → 不追加', async () => {
+  const calls = []
+  const adapters = {
+    exa: { search: async () => { calls.push('exa'); return { sources: [{ url: 'u1' }, { url: 'u2' }, { url: 'u3' }, { url: 'u4' }] } } },
+    serper: { search: async () => { calls.push('serper'); return { sources: [{ url: 'u5' }] } } },
+  }
+  const config = { strategy: 'failover', mergeThreshold: 3, backends: [
+    { id: 'exa', kind: 'exa', priority: 1, apiKey: 'k' },
+    { id: 'serper', kind: 'serper', priority: 2, apiKey: 'k' },
+  ] }
+  const p = new SearchPoolProvider(() => config, adapters)
+  const r = await p.search({ query: 'q', maxResults: 8 })
+  assert.deepEqual(calls, ['exa'])   // 4 条 ≥ 3, 不再用 serper
+  assert.equal(r.sources.length, 4)
+})
+
+test('rotate: 不加合并 — 命中一个健康后端即返回', async () => {
+  const calls = []
+  const adapters = {
+    a: { search: async () => { calls.push('a'); return { sources: [{ url: 'u1' }] } } },
+    b: { search: async () => { calls.push('b'); return { sources: [{ url: 'u2' }] } } },
+  }
+  const config = { strategy: 'rotate', mergeThreshold: 3, backends: [
+    { id: 'a', kind: 'a', priority: 1, weight: 1 },
+    { id: 'b', kind: 'b', priority: 2, weight: 1 },
+  ] }
+  const p = new SearchPoolProvider(() => config, adapters)
+  const r = await p.search({ query: 'q', maxResults: 8 })
+  assert.deepEqual(calls, ['a'])     // 1 条但 rotate 不追加
+  assert.equal(r.sources.length, 1)
+})
