@@ -416,100 +416,112 @@ function SearchPoolSection({ t }) {
     React.createElement('h4', { style: { margin: '12px 0 6px', fontWeight: 600 } }, t('keysTitle')),
     strategy === 'rotate' && React.createElement('button', { style: buttonGhost, disabled: busy, onClick: load }, t('refreshQuota')),
     React.createElement('div', null,
-      React.createElement('div', { style: { ...row, borderBottom: '1px solid rgba(128,128,128,0.3)', fontSize: '12px', fontWeight: 600, opacity: 0.65, padding: '6px 0' } },
-        React.createElement('div', { style: { flex: '0 0 140px' } }, t('backend')),
-        React.createElement('div', { style: { flex: '1 1 auto' } }, t('key')),
-        React.createElement('div', { style: { flex: '0 0 100px', textAlign: 'center' } }, t('status')),
-        React.createElement('div', { style: { flex: '0 0 48px', textAlign: 'center' } }, t('hasKey')),
-        strategy === 'rotate' && React.createElement('div', { style: { flex: '0 0 44px', textAlign: 'center', title: t('weightHint') } }, t('weightLabel')),
-        React.createElement('div', { style: { flex: '0 0 106px' } }, ''),
-      ),
-      backends.map((b, bi) => {
-        const idx = backends.indexOf(b)
-        const q = quota?.quota?.[b.id]
-        let quotaText = null
-        if (q && !q.error) quotaText = q.plan + ' · ' + t('quotaLeft') + ' '
-          + q.remaining + '/' + q.limit + (q.resetAt ? ' · ' + q.resetAt.slice(0, 10) : '')
-        else if (q && q.error) quotaText = t('quotaError')
-        const iconBtn = {
-          border: '0', background: 'transparent', color: 'inherit', cursor: 'pointer',
-          fontSize: '13px', opacity: 0.7, padding: '2px 4px', borderRadius: '6px',
-        }
-        return React.createElement('div', { key: b.id, style: row },
-          React.createElement('div', { style: { ...cell, flex: '0 0 150px' } },
-            b.site
-              ? React.createElement('a', {
-                  href: b.site,
-                  target: '_blank',
-                  rel: 'noopener noreferrer',
-                  style: link,
-                  title: b.site,
-                }, b.id)
-              : React.createElement('span', { style: { ...linkMuted, fontWeight: 600 } }, b.id),
-            b.custom && React.createElement('span', {
-              style: { display: 'inline-block', marginLeft: '6px', padding: '0 6px', borderRadius: '8px', background: 'rgba(127,127,127,0.25)', fontSize: '11px', verticalAlign: 'middle' },
-            }, t('customTag')),
-            React.createElement('div', { style: { opacity: 0.6, fontSize: '12px' } }, b.kind),
-            quotaText && React.createElement('div', { style: { fontSize: '11px', color: '#2f9e44', marginTop: '2px' } }, quotaText),
-            testResults[b.id] && React.createElement('div', { style: { fontSize: '11px', marginTop: '2px', color: testResults[b.id].ok ? '#2f9e44' : '#e8590c' } },
-              testResults[b.id].ok
-                ? '✓ ' + t('testOk') + ' ' + testResults[b.id].sources + ' · ' + testResults[b.id].ms + 'ms'
-                : '✗ ' + (testResults[b.id].error ?? t('quotaError')),
-            ),
+      // 表头与行共用同一 grid 模板 → 列绝对对齐
+      (function () {
+        const gridCols = strategy === 'rotate'
+          ? '140px minmax(120px, 1fr) 100px 48px 44px 36px 44px 26px'
+          : '140px minmax(120px, 1fr) 100px 48px 36px 44px 26px'
+        const gridBase = { display: 'grid', gridTemplateColumns: gridCols, columnGap: '10px', alignItems: 'center' }
+        const center = { textAlign: 'center' }
+        return [
+          React.createElement('div', {
+            key: 'head',
+            style: { ...gridBase, borderBottom: '1px solid rgba(128,128,128,0.3)', fontSize: '12px', fontWeight: 600, opacity: 0.65, padding: '6px 0' },
+          },
+            React.createElement('div', null, t('backend')),
+            React.createElement('div', null, t('key')),
+            React.createElement('div', { style: center }, t('status')),
+            React.createElement('div', { style: center }, t('hasKey')),
+            strategy === 'rotate' && React.createElement('div', { style: { ...center, title: t('weightHint') } }, t('weightLabel')),
+            React.createElement('div', null, ''),
           ),
-          React.createElement('div', { style: { ...cell, minWidth: 130 } },
-            React.createElement('input', {
-              style: input,
-              type: 'password',
-              placeholder: b.hasKey ? t('hasKey') + ' · ' + t('placeholder') : t('placeholder'),
-              value: keys[b.id] ?? '',
-              onChange: (e) => setKeys((k) => ({ ...k, [b.id]: e.target.value })),
-            }),
-          ),
-          React.createElement('div', { style: { flex: '0 0 100px', textAlign: 'center', fontSize: '12px' } },
-            b.state === 'closed'
-              ? React.createElement('span', { style: badge('#2f9e44') }, t('stClosed'))
-              : React.createElement('span', { style: badge(b.quota ? '#e8590c' : '#f08c00') },
-                  (b.quota ? t('stQuota') : t('stOpen')) + (b.cooldownMs ? ' ' + fmtCooldown(b.cooldownMs) : '')),
-          ),
-          React.createElement('div', { style: { flex: '0 0 48px', textAlign: 'center', fontSize: '12px' } },
-            b.hasKey
-              ? React.createElement('span', { style: { color: '#2f9e44' } }, t('hasKey'))
-              : React.createElement('span', { style: { color: '#e8590c' } }, t('noKey')),
-          ),
-          strategy === 'rotate' && React.createElement('div', { style: { flex: '0 0 44px', textAlign: 'center' } },
-            React.createElement('input', {
-              style: { ...input, width: '38px', padding: '4px', textAlign: 'center' },
-              type: 'number', min: 1, max: 10,
-              title: t('weightHint'),
-              value: b.weight ?? 1,
-              onChange: (e) => setWeight(b.id, e.target.value),
-            }),
-          ),
-          React.createElement('div', { style: { flex: '0 0 36px', textAlign: 'center' } },
-            React.createElement('button', {
-              style: iconBtn,
-              title: t('test'),
-              disabled: busy || testBusy !== null,
-              onClick: () => testBackend(b.id),
-            }, testBusy === b.id ? '…' : '▶'),
-          ),
-          React.createElement('div', { style: { flex: '0 0 44px', textAlign: 'center' } },
-            React.createElement('button', { style: iconBtn, title: t('moveUp'), disabled: busy || idx === 0, onClick: () => moveBackend(b.id, -1) }, '↑'),
-            React.createElement('button', { style: iconBtn, title: t('moveDown'), disabled: busy || idx === backends.length - 1, onClick: () => moveBackend(b.id, 1) }, '↓'),
-          ),
-          React.createElement('div', { style: { flex: '0 0 26px', textAlign: 'center' } },
-            React.createElement('button', {
-              style: iconBtn,
-              title: 'remove',
-              disabled: busy,
-              onClick: () => removeBackend(b.id),
-            }, '✕'),
-          ),
-        )
-      }),
-      state === null && !error && React.createElement('div', { style: { opacity: 0.6 } }, t('loading')),
-      backends.length === 0 && state !== null && React.createElement('div', { style: { opacity: 0.6 } }, '( )'),
+          ...backends.map((b, idx) => {
+            const q = quota?.quota?.[b.id]
+            let quotaText = null
+            if (q && !q.error) quotaText = q.plan + ' · ' + t('quotaLeft') + ' '
+              + q.remaining + '/' + q.limit + (q.resetAt ? ' · ' + q.resetAt.slice(0, 10) : '')
+            else if (q && q.error) quotaText = t('quotaError')
+            const iconBtn = {
+              border: '0', background: 'transparent', color: 'inherit', cursor: 'pointer',
+              fontSize: '13px', opacity: 0.7, padding: '2px 4px', borderRadius: '6px',
+            }
+            return React.createElement('div', { key: b.id, style: { ...gridBase, borderBottom: '1px solid rgba(128,128,128,0.18)', padding: '8px 0' } },
+              React.createElement('div', { style: { minWidth: 0 } },
+                b.site
+                  ? React.createElement('a', {
+                      href: b.site,
+                      target: '_blank',
+                      rel: 'noopener noreferrer',
+                      style: link,
+                      title: b.site,
+                    }, b.id)
+                  : React.createElement('span', { style: { ...linkMuted, fontWeight: 600 } }, b.id),
+                b.custom && React.createElement('span', {
+                  style: { display: 'inline-block', marginLeft: '6px', padding: '0 6px', borderRadius: '8px', background: 'rgba(127,127,127,0.25)', fontSize: '11px', verticalAlign: 'middle' },
+                }, t('customTag')),
+                React.createElement('div', { style: { opacity: 0.6, fontSize: '12px' } }, b.kind),
+                quotaText && React.createElement('div', { style: { fontSize: '11px', color: '#2f9e44', marginTop: '2px' } }, quotaText),
+                testResults[b.id] && React.createElement('div', { style: { fontSize: '11px', marginTop: '2px', color: testResults[b.id].ok ? '#2f9e44' : '#e8590c' } },
+                  testResults[b.id].ok
+                    ? '✓ ' + t('testOk') + ' ' + testResults[b.id].sources + ' · ' + testResults[b.id].ms + 'ms'
+                    : '✗ ' + (testResults[b.id].error ?? t('quotaError')),
+                ),
+              ),
+              React.createElement('div', { style: { minWidth: 0 } },
+                React.createElement('input', {
+                  style: { ...input, width: '100%' },
+                  type: 'password',
+                  placeholder: b.hasKey ? t('hasKey') + ' · ' + t('placeholder') : t('placeholder'),
+                  value: keys[b.id] ?? '',
+                  onChange: (e) => setKeys((k) => ({ ...k, [b.id]: e.target.value })),
+                }),
+              ),
+              React.createElement('div', { style: { ...center, fontSize: '12px' } },
+                b.state === 'closed'
+                  ? React.createElement('span', { style: badge('#2f9e44') }, t('stClosed'))
+                  : React.createElement('span', { style: badge(b.quota ? '#e8590c' : '#f08c00') },
+                      (b.quota ? t('stQuota') : t('stOpen')) + (b.cooldownMs ? ' ' + fmtCooldown(b.cooldownMs) : '')),
+              ),
+              React.createElement('div', { style: { ...center, fontSize: '12px' } },
+                b.hasKey
+                  ? React.createElement('span', { style: { color: '#2f9e44' } }, t('hasKey'))
+                  : React.createElement('span', { style: { color: '#e8590c' } }, t('noKey')),
+              ),
+              strategy === 'rotate' && React.createElement('div', { style: center },
+                React.createElement('input', {
+                  style: { ...input, width: '36px', padding: '4px', textAlign: 'center' },
+                  type: 'number', min: 1, max: 10,
+                  title: t('weightHint'),
+                  value: b.weight ?? 1,
+                  onChange: (e) => setWeight(b.id, e.target.value),
+                }),
+              ),
+              React.createElement('div', { style: center },
+                React.createElement('button', {
+                  style: iconBtn,
+                  title: t('test'),
+                  disabled: busy || testBusy !== null,
+                  onClick: () => testBackend(b.id),
+                }, testBusy === b.id ? '…' : '▶'),
+              ),
+              React.createElement('div', { style: center },
+                React.createElement('button', { style: iconBtn, title: t('moveUp'), disabled: busy || idx === 0, onClick: () => moveBackend(b.id, -1) }, '↑'),
+                React.createElement('button', { style: iconBtn, title: t('moveDown'), disabled: busy || idx === backends.length - 1, onClick: () => moveBackend(b.id, 1) }, '↓'),
+              ),
+              React.createElement('div', { style: center },
+                React.createElement('button', {
+                  style: iconBtn,
+                  title: 'remove',
+                  disabled: busy,
+                  onClick: () => removeBackend(b.id),
+                }, '✕'),
+              ),
+            )
+          }),
+          state === null && !error && React.createElement('div', { key: 'loading', style: { opacity: 0.6, gridColumn: '1 / -1' } }, t('loading')),
+          backends.length === 0 && state !== null && React.createElement('div', { key: 'empty', style: { opacity: 0.6, gridColumn: '1 / -1' } }, '( )'),
+        ]
+      })(),
     ),
     React.createElement('button', {
       style: { ...buttonGhost, marginTop: '10px' },
