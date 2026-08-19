@@ -238,3 +238,46 @@ test('rotate: 不加合并 — 命中一个健康后端即返回', async () => {
   assert.deepEqual(calls, ['a'])     // 1 条但 rotate 不追加
   assert.equal(r.sources.length, 1)
 })
+
+test('默认(未设 mergeThreshold=0): failover 首源成功即返回, 不跨源合并', async () => {
+  const calls = []
+  const adapters = {
+    exa: { search: async () => { calls.push('exa'); return { sources: [{ url: 'u1' }] } } },
+    serper: { search: async () => { calls.push('serper'); return { sources: [{ url: 'u2' }, { url: 'u3' }] } } },
+  }
+  const config = { strategy: 'failover', backends: [
+    { id: 'exa', kind: 'exa', priority: 1, apiKey: 'k' },
+    { id: 'serper', kind: 'serper', priority: 2, apiKey: 'k' },
+  ] }
+  const p = new SearchPoolProvider(() => config, adapters)
+  const r = await p.search({ query: 'q' })
+  assert.deepEqual(calls, ['exa'])        // 默认不合并: 首源成功即返回
+  assert.equal(r.sources.length, 1)
+  assert.deepEqual(r.providers, ['exa'])
+})
+
+test('request.source: 强制只用指定引擎, 不按优先级不合并', async () => {
+  const calls = []
+  const adapters = {
+    exa: { search: async () => { calls.push('exa'); return { sources: [{ url: 'u1' }] } } },
+    serper: { search: async () => { calls.push('serper'); return { sources: [{ url: 'u2' }] } } },
+  }
+  const config = { strategy: 'failover', mergeThreshold: 3, backends: [
+    { id: 'exa', kind: 'exa', priority: 1, apiKey: 'k' },
+    { id: 'serper', kind: 'serper', priority: 2, apiKey: 'k' },
+  ] }
+  const p = new SearchPoolProvider(() => config, adapters)
+  const r = await p.search({ query: 'q', source: 'serper' })
+  assert.deepEqual(calls, ['serper'])     // 即使 exa 优先级更高, 指定 serper 就只用 serper
+  assert.deepEqual(r.providers, ['serper'])
+  assert.equal(r.sources.length, 1)
+})
+
+test('request.source 未知 → 抛 SearchPoolError', async () => {
+  const adapters = { exa: { search: async () => ({ sources: [{ url: 'u1' }] }) } }
+  const config = { strategy: 'failover', mergeThreshold: 3, backends: [
+    { id: 'exa', kind: 'exa', priority: 1, apiKey: 'k' },
+  ] }
+  const p = new SearchPoolProvider(() => config, adapters)
+  await assert.rejects(() => p.search({ query: 'q', source: 'nope' }), /unknown search source/)
+})
