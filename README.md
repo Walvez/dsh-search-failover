@@ -1,167 +1,214 @@
 # dsh-search-failover
 
-DSH 的 **provider 级搜索池**: 原生 `web_search` 工具不变, 内部自动在多个
-免费/付费搜索后端间 failover / rotate, 带**额度感知熔断**。
+<p align="center">
+  <a href="https://www.npmjs.com/package/dsh-search-failover"><img src="https://img.shields.io/npm/v/dsh-search-failover.svg?style=flat-square&color=blue" alt="npm version"></a>
+  <a href="https://github.com/Walvez/dsh-search-failover/actions/workflows/test.yml"><img src="https://img.shields.io/github/actions/workflow/status/Walvez/dsh-search-failover/test.yml?style=flat-square&label=tests" alt="build status"></a>
+  <a href="https://nodejs.org/"><img src="https://img.shields.io/badge/node-%3E%3D22.0.0-brightgreen.svg?style=flat-square" alt="node version"></a>
+  <a href="https://github.com/Walvez/dsh-search-failover/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square" alt="license"></a>
+  <a href="https://github.com/deepseek-ai/awesome-dsh-plugin"><img src="https://img.shields.io/badge/dsh-awesome--plugin-orange.svg?style=flat-square" alt="awesome plugin"></a>
+</p>
 
-> 状态: v0.2 (8 个后端适配器) · 设计文档见 dsh-config/docs/search-failover-design.md
+<p align="center">
+  <b>DeepSeek Harness (DSH) 原生 provider 级智能搜索池插件</b><br>
+  多源容灾（Failover）· 加权轮询（Weighted Rotate）· 额度感知熔断 · AI 自主换源 · 实时 Web GUI 设置面板
+</p>
 
-## 为什么
+---
 
-- `dsh-search-mcp` 能配多个服务器但没有自动 failover
-- `dsh-web-search-pro` 有自动回退但是重依赖的工具套件, 不是 provider 级
-- 本插件: 轻量(纯 HTTP) + provider 级(保留原生工具) + 额度感知熔断
+## ✨ 核心特性
 
-## 架构
+- 🛡️ **Provider 级透明替换**：无侵入接管 DSH `ctx.web`，保持原生 `web_search` 工具签名完全不变，会话与 Agent 零感知。
+- 🔄 **双重路由策略**：
+  - **优先顺序 (Failover)**：按优先级从高到低依次尝试，前一个后端失败或熔断自动下探下一个。
+  - **加权轮询 (Weighted Rotate)**：按 1~10 权重将搜索流量平摊到所有健康引擎，最大化榨干各大搜索源的免费额度。
+- ⚡ **智能额度感知与熔断器 (Circuit Breaker)**：
+  - 遇到额度耗尽（HTTP 402/429/Quota Exceeded）→ **长冷却 (1h)**，避免无效请求；
+  - 遇到临时网络抖动（Transient Error）→ 5 分钟内连续 3 次失败触发 **短冷却 (60s)**；
+  - 冷却到期自动半开探活，成功立即恢复。
+- 🤖 **AI 自主换源技能 (`web_search_from`)**：
+  - 为 Agent 注入专属换源工具。当 AI 认为默认结果不够理想、信息过时或源单一时，可自主选择 `exa` / `serper` / `tavily` / `jina` 等引擎重新搜索并对比。
+- 🎛️ **Web GUI 实时热生效设置面板**：
+  - 在 DSH 设置页一键填写/修改 API Key、切换策略、拖拽排序、测试连通性，**保存即实时生效，无需重启进程**。
+  - 密钥安全保存在本地 `~/.dsh/settings.yaml`，绝不上报。
+- 🔌 **全生态搜索引擎适配**：
+  - 内置支持 **Exa**, **Serper.dev**, **Tavily** (支持 keyless 匿名档), **Jina Search**, **SerpApi**, **SearXNG** (自托管), **DuckDuckGo**, **Brave**。
 
+---
+
+## 🏗️ 架构概览
+
+```text
+┌──────────────────────────────────────────────────────────────┐
+│                    AI Agent / User Chat                      │
+└──────────────┬────────────────────────────────┬──────────────┘
+               │ (默认搜索)                      │ (显式换源)
+               ▼                                ▼
+┌──────────────────────────────┐ ┌─────────────────────────────┐
+│  web_search (DSH 原生工具)    │ │  web_search_from (增强工具)   │
+└──────────────┬───────────────┘ └──────────────┬──────────────┘
+               │                                │
+               ▼                                ▼
+┌──────────────────────────────────────────────────────────────┐
+│               SearchPoolProvider (search-pool)               │
+│                                                              │
+│  [调度决策]                                                  │
+│   ├── 指定源 (source): 直连指定引擎, 不走池                    │
+│   ├── Failover: 按 priority 升序依次尝试                      │
+│   └── Rotate: 按 weight 展开加权轮转                         │
+│                                                              │
+│  [熔断与健康守护]                                            │
+│   ├── CircuitBreaker 监控各后端健康度                         │
+│   └── 额度耗尽(1h 冷却) / 瞬时错误(60s 冷却) / 探活恢复       │
+└──────────────────────────────┬───────────────────────────────┘
+                               │
+   ┌──────────┬──────────┬─────┴────┬──────────┬──────────┐
+   ▼          ▼          ▼          ▼          ▼          ▼
+┌─────┐    ┌─────┐    ┌──────┐   ┌──────┐   ┌─────┐   ┌─────────┐
+│ Exa │    │Serper│   │Tavily│   │ Jina │   │Serp-│   │ SearXNG │
+│     │    │ .dev │   │(Anon)│   │  AI  │   │ Api │   │ (Local) │
+└─────┘    └─────┘    └──────┘   └──────┘   └─────┘   └─────────┘
 ```
-web_search (原生工具)
-  └── ctx.web → searchProvider: "search-pool"
-        └── SearchPoolProvider.search(query)
-              ├─ failover: 按 priority 依次尝试, 首个成功返回
-              ├─ rotate:   健康后端轮询 (分散免费额度)
-              ├─ 熔断: QUOTA→长冷却(1h) / TRANSIENT→阈值3次/5min→短冷却(60s)
-              └─ 冷却到期半开探活, 成功即恢复
-```
 
-## 开发安装 (link:)
+---
+
+## 🚀 快速开始
+
+### 1. 安装插件
+
+在你的 DSH 项目或 Web Profile 下安装：
 
 ```bash
-# 1. 装进 web profile (link: 改代码即时生效)
-#    package.json 声明 dsh.bundle.patch → 自动加入 profile bundle 层
-dsh plugin --profile web add link:/Users/walve/Documents/Codex/dsh-search-failover
+# 方式 A: 从 npm 安装 (推荐)
+dsh plugin --profile web add dsh-search-failover
 
-# 2. 用户 patch (cordis.patch.yml) 提供后端链配置:
-#    - id: web  → searchProvider: search-pool
-#    - id: search-pool → config.backends (见下)
-#    (bundle 只插入行; key 经 apiKeyEnv 从 ~/.dsh/.env 读取)
-
-# 3. 验证组合树 (无需重启): dsh --profile web --dump-config | grep -A30 "id: search-pool"
-
-# 4. 重启 dsh web 生效
+# 方式 B: 本地克隆软链调试 (开发者)
+git clone https://github.com/Walvez/dsh-search-failover.git
+dsh plugin --profile web add link:$(pwd)/dsh-search-failover
 ```
 
-## 后端适配器 (免费额度, 2026-08 核实)
+### 2. 启用配置
 
-| kind | 后端 | 免费额度 | key | 说明 |
-|---|---|---|---|---|
-| `exa` | Exa | 注册 $20 + $10/月; 教育 $1000 | 必须 | `apiKeyEnv: EXA_API_KEY` ✅ 实测可用 |
-| `tavily` | Tavily | 1000 积分/月 | 可选 | 无 key 自动走 keyless 匿名档 ✅ 实测可用 |
-| `serper` | Serper.dev | 2500 次一次性 | 必须 | Google SERP |
-| `serpapi` | SerpApi | 250 次/月 | 必须 | Google SERP |
-| `brave` | Brave | ⚠️ 免费档已撤 (2026-08 实测注册需订阅) | 必须 | 不推荐 |
-| `jina` | Jina s.jina.ai | 免费注册得 key | 必须 | ⚠️ 实测 2026-08 无 key 已 401, markdown 解析 |
-| `ddg` | DuckDuckGo | 完全免费 | 无 | ⚠️ 实测 2026-08 被反爬拦截 (202 anomaly), 视网络/IP 而定 |
-| `searxng` | SearXNG 自托管 | 完全免费 | 无 | `baseURL` 或 env `SEARXNG_BASE_URL`; 实例需开 `format: json` |
-
-每个后端通用字段: `id`(熔断/日志标识)、`kind`、`priority`(failover 顺序, 小者优先)、
-`apiKey` / `apiKeyEnv`(从环境读 key)、`baseURL`(searxng 用)。
-
-## 配置 (cordis.patch.yml)
+在 `cordis.patch.yml` 中声明挂载与默认后端配置：
 
 ```yaml
 - id: search-pool
   name: dsh-search-failover
   config:
-    strategy: failover          # failover | rotate
-    maxResults: 8
-    timeoutMs: 15000
+    strategy: failover          # failover (优先顺序) | rotate (轮询分摊)
+    maxResults: 8               # 默认返回条数上限
+    timeoutMs: 15000            # 单个请求超时时间 (ms)
     backends:
-      - id: exa                 # 主力 (需 key)
+      - id: exa
         kind: exa
-        apiKeyEnv: EXA_API_KEY
+        apiKeyEnv: EXA_API_KEY  # 从 ~/.dsh/.env 读取
         priority: 1
-      - id: serper              # 2500 次试用 (需 key)
+      - id: serper
         kind: serper
         apiKeyEnv: SERPER_API_KEY
         priority: 2
-      - id: tavily-anon         # 无 key → Tavily keyless 匿名档
+      - id: tavily
         kind: tavily
+        apiKeyEnv: TAVILY_API_KEY
         priority: 3
-      - id: jina                # 免费注册 key 后可用
+      - id: jina
         kind: jina
         apiKeyEnv: JINA_API_KEY
         priority: 4
-      - id: ddg                 # DuckDuckGo HTML, 完全免费 (可能被反爬拦截)
-        kind: ddg
-        priority: 5
-      - id: serpapi             # 250 次/月 (需 key)
+      - id: serpapi
         kind: serpapi
         apiKeyEnv: SERPAPI_API_KEY
-        priority: 6
-      - id: brave               # 2000 次/月 (需 key)
-        kind: brave
-        apiKeyEnv: BRAVE_API_KEY
-        priority: 7
-      - id: searxng             # 自托管 (可选)
+        priority: 5
+      - id: searxng
         kind: searxng
-        baseURL: http://localhost:8080
-        priority: 8
+        baseURL: http://127.0.0.1:8080
+        priority: 6
     circuit:
-      threshold: 3
-      burstWindowMs: 300000
-      cooldownMs: 60000
-      quotaCooldownMs: 3600000
+      threshold: 3              # 连续错误阈值
+      burstWindowMs: 300000     # 统计时间窗口 (5 分钟)
+      cooldownMs: 60000         # 瞬时错误冷却时间 (1 分钟)
+      quotaCooldownMs: 3600000  # 额度耗尽冷却时间 (1 小时)
 ```
 
-## 设置页 (v0.3+)
-
-GUI 内管理所有后端的 API Key: **设置 → 搜索池**, 每个后端一行,
-填 key 点保存即写入 `settings.yaml` user 层并**立即生效 (无需重启)** —
-provider 每次搜索实时读取配置。页面还实时显示每个后端的熔断/冷却状态
-(正常 / 冷却中 / 额度冷却 + 倒计时), 以及 key 是否已配置。
-
-- 保存路径: `POST /search-pool/keys` (same-origin 校验) → `settings.update`
-- 恢复默认: `POST /search-pool/reset` → `settings.replace({})`, 回退到行内配置
-- 状态查询: `GET /search-pool/state` (no-store)
-- 优先级: 设置页保存的 `apiKey` > 行内 `apiKey` > `apiKeyEnv` 环境变量
-- **自定义后端**: 「添加后端」可选择任意已支持类型（含自托管 SearXNG），保存即热生效；
-  所有后端都可一键删除（内置项删除后可用「恢复默认配置」找回）。
-- **策略切换**: 「使用方式」一键切换 failover(按优先级) / rotate(轮询分摊)。
-  - failover 顺序 = 列表顺序：每行 ↑↓ 按钮直接排序。
-  - rotate 可设每后端权重 1-10（默认 1），搜索按权重分配。
-- **AI 换源工具**: 插件注册 `web_search_from(query, source)` 工具, AI 觉得 web_search 结果不理想时
-  可显式指定某引擎(如 `serper`/`tavily`/`jina`…)再搜或对比 — 判断权在 AI, 不做硬合并。
-- **可选多源合并**: 设 `mergeThreshold`(默认 0=关闭) 后, failover 在当前后端结果不足阈值时才会自动追加后续源并合并去重。
-- **额度查询**: 每个后端行内实时显示剩余额度（SerpApi 支持，其余无公开接口则标注）。
-- **测试连接**: 每行 ▶ 按钮对该后端发一次真实轻量搜索 (1 条), 显示可用性与耗时。
-- 密钥只存在本机 `~/.dsh/settings.yaml`, 绝不进 git / 不上报
-
-## 测试
+### 3. 启动 DSH Web
 
 ```bash
-npm test     # node:test, 纯逻辑无网络
+dsh web
 ```
 
-## 路线
+打开 Web GUI (默认 `http://127.0.0.1:3080`)，进入 **设置 → 搜索池** 即可在界面直接管理所有 Key。
 
-- v0.1: failover + exa/tavily/ddg + 熔断 ✅
-- v0.2: 适配器扩展 — serper/serpapi/brave/jina/searxng ✅; 故障演练+console 日志 ✅
-- v0.3: 设置页 UI (GUI 填 key 热生效) ✅; 发布 npm/GitHub ✅; 收录 awesome-dsh-plugin ✅
-- v0.4: multi/RRF 融合 🔜 | rotate 分散额度 🔜
+---
 
-## 真实网络验证 (2026-08-16 实测)
+## 📊 后端引擎支持与额度参考
+
+| 引擎标识 (`kind`) | 后端服务 | 官方免费额度 (核实) | 密钥要求 | 特性与说明 |
+|---|---|---|---|---|
+| `exa` | **Exa (Metaphor)** | 注册送 $20，每月赠 $10（学生认证 $1000） | 必须 | 语义神经搜索，质量极高，推荐作为主力 |
+| `serper` | **Serper.dev** | 注册赠送 2,500 次调用 | 必须 | Google SERP 原生结果，速度快 (~2s) |
+| `tavily` | **Tavily** | 每月 1,000 次免费额度 | 可选 | 专为 LLM 设计，无 key 时自动回退至官方匿名档 |
+| `jina` | **Jina Search** | 免费注册获取 API Key | 必须 | `s.jina.ai` Markdown 深度提取 |
+| `serpapi` | **SerpApi** | 每月 250 次免费搜索 | 必须 | 支持实时账户额度余量查询 |
+| `searxng` | **SearXNG** | 自托管，完全无限免费 | 无 | 需在自建实例中开启 `format: json` |
+| `brave` | **Brave Search** | 需绑卡订阅 | 必须 | 商业索引 |
+| `ddg` | **DuckDuckGo** | 完全免费 | 无 | HTML 解析（受网络和反爬限制，适合最后兜底） |
+
+---
+
+## 🤖 AI 自主换源工具 (`web_search_from`)
+
+当 Agent 认为默认搜索结果不理想时，可以主动调用由本插件注册的 `web_search_from` 工具：
+
+### 工具参数
+
+```json
+{
+  "name": "web_search_from",
+  "description": "用指定的搜索后端(引擎)搜索当前信息并返回该源原始结果。可用于多源对比或换引擎重试。",
+  "parameters": {
+    "query": { "type": "string", "description": "搜索关键词" },
+    "source": { "type": "string", "description": "指定后端类型 (例如 exa, serper, tavily, jina, searxng 等)" },
+    "maxResults": { "type": "number", "description": "返回结果数量上限 (默认 8)" }
+  }
+}
+```
+
+### Agent 典型工作流
+
+1. Agent 执行 `web_search(query="最新技术动态")` 走默认搜索池；
+2. 发现结果大多是旧闻或不相关，Agent 主动调用 `web_search_from(query="最新技术动态", source="serper")` 从 Google 实时索引获取结果；
+3. 对比各源信息，输出最准确、最及时的回答。
+
+---
+
+## 🎛️ Web GUI 设置面板
+
+在 DSH Web 管理界面（**设置 → 搜索池**）中：
+
+- **实时密钥填写**：随时填写或更新各引擎 API Key，点击保存立即热生效。
+- **一键测试连接 (▶)**：对指定后端发起 1 条测试搜索，毫秒级反馈连通状态与响应耗时。
+- **动态优先级调整 (↑ / ↓)**：通过按钮调整引擎在 Failover 链中的优先级。
+- **轮询权重调节**：在轮询分摊模式下，为不同引擎设置 1~10 权重值。
+- **添加自定义后端**：无需改写代码或配置文件，直接在界面添加 SearXNG 实例或新后端。
+- **额度余量透视**：行内直接显示支持额度查询的后端（如 SerpApi）的套餐类型、剩余次数及重置日期。
+
+---
+
+## 🧪 单元测试
+
+项目包含完善的单元测试套件（覆盖熔断器状态机、加权轮询、优先级排序、多源容灾、自愈探活等）：
 
 ```bash
-EXA_API_KEY=xxx node scripts/smoke.mjs [kind...]   # 逐个真实调用并打印结果
+# 运行单元测试
+npm test
+
+# 运行真实网络冒烟测试
+EXA_API_KEY=your_key node scripts/smoke.mjs exa serper tavily
 ```
 
-| kind | 实测结果 |
-|---|---|
-| `exa` (真实 key) | ✅ 5 条结果 ~2s |
-| `tavily` (真实 key) | ✅ 5 条结果 ~1.3s |
-| `tavily` (keyless 匿名) | ✅ 5 条结果 ~2.8s |
-| `serper` (真实 key) | ✅ 5 条结果 ~2.3s |
-| `serpapi` (真实 key) | ✅ 6 条结果 ~14s (最慢) |
-| `jina` (真实 key) | ✅ 6 条结果 ~8.3s |
-| `ddg` | ❌ html/lite 双端点均 202 anomaly (反爬), 浏览器 UA 无效 |
-| `brave` | ❌ 免费档已撤, 未注册 |
+---
 
-## 合规提示
+## 📄 开源许可证
 
-- DDG 走非官方 HTML 端点, 有 ToS 风险, 实测已被反爬拦截, 仅作兜底
-- Tavily keyless / Exa 均为官方免费档, 有限速
+本项目基于 [MIT License](LICENSE) 开源。
 
-## 致谢
-
-- 熔断模式借鉴 [dsh-model-failover](https://github.com/dsh-model-failover)
-- 适配器/归一化参考 [dsh-search-mcp](https://github.com/gxpppp/dsh-search-mcp) (MIT)
+欢迎提交 Issue 和 Pull Request 共同改进！
