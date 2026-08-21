@@ -281,3 +281,68 @@ test('request.source 未知 → 抛 SearchPoolError', async () => {
   const p = new SearchPoolProvider(() => config, adapters)
   await assert.rejects(() => p.search({ query: 'q', source: 'nope' }), /unknown search source/)
 })
+
+test('多 Key: 第一个 Key 失败 → 同引擎切下一个 Key', async () => {
+  const used = []
+  const adapters = {
+    tavily: {
+      search: async (backend) => {
+        used.push(backend.apiKey)
+        if (backend.apiKey === 'k1') {
+          const e = new Error('quota')
+          e.kind = 'quota'
+          throw e
+        }
+        return { sources: [{ url: 'u2' }] }
+      },
+    },
+  }
+  const p = new SearchPoolProvider(() => ({
+    strategy: 'failover',
+    backends: [{ id: 'tavily', kind: 'tavily', priority: 1, apiKey: 'k1\nk2' }],
+  }), adapters)
+  const r = await p.search({ query: 'q' })
+  assert.deepEqual(used, ['k1', 'k2'])
+  assert.equal(r.sources[0].url, 'u2')
+  // k1 进入额度冷却, k2 仍可用
+  const snap = p.state().backends[0]
+  assert.equal(snap.hasKey, true)
+  assert.equal(snap.keyCount, 2)
+  assert.equal(snap.state, 'closed')
+})
+
+test('fetch: 只走声明了 fetch 的适配器, 失败则下探', async () => {
+  const calls = []
+  const adapters = {
+    serper: { search: async () => ({ sources: [{ url: 's' }] }) },
+    jina: {
+      search: async () => ({ sources: [{ url: 'j' }] }),
+      fetch: async () => { calls.push('jina'); throw Object.assign(new Error('boom'), { kind: 'transient' }) },
+    },
+    firecrawl: {
+      search: async () => ({ sources: [{ url: 'f' }] }),
+      fetch: async () => { calls.push('firecrawl'); return { url: 'https://ok.example', content: '# hi' } },
+    },
+  }
+  const p = new SearchPoolProvider(() => ({
+    strategy: 'failover',
+    backends: [
+      { id: 'serper', kind: 'serper', priority: 1, apiKey: 'k' },
+      { id: 'jina', kind: 'jina', priority: 2, apiKey: 'k' },
+      { id: 'firecrawl', kind: 'firecrawl', priority: 3, apiKey: 'k' },
+    ],
+  }), adapters)
+  const r = await p.fetch({ url: 'https://example.com' })
+  assert.deepEqual(calls, ['jina', 'firecrawl'])
+  assert.equal(r.statusCode, 200)
+  assert.equal(r.body.kind, 'text')
+  assert.equal(r.body.content, '# hi')
+  assert.equal(r.url, 'https://ok.example')
+})
+
+test('fetch: 没有 fetch 适配器 → 抛错', async () => {
+  const p = new SearchPoolProvider(() => ({
+    backends: [{ id: 'serper', kind: 'serper', apiKey: 'k' }],
+  }), { serper: { search: async () => ({ sources: [] }) } })
+  await assert.rejects(() => p.fetch({ url: 'https://x.example' }), /no fetch-capable/)
+})

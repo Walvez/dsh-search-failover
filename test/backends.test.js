@@ -184,3 +184,37 @@ test('serpapi usage: 无 key → auth 错误', async () => {
     await assert.rejects(() => backends.serpapi.usage({ apiKey: '' }), /no API key/)
   } finally { restore() }
 })
+
+test('firecrawl: POST /v1/search Bearer + data 映射', async () => {
+  let seen = null
+  const restore = stubFetch(async (url, init) => {
+    seen = { url, auth: init.headers.authorization, body: JSON.parse(init.body) }
+    return { json: { data: [{ url: 'https://f.example', title: 'T', description: 'D' }] } }
+  })
+  try {
+    const r = await backends.firecrawl.search({ apiKey: 'fc' }, { query: 'q', maxResults: 5 }, undefined)
+    assert.equal(seen.url, 'https://api.firecrawl.dev/v1/search')
+    assert.equal(seen.auth, 'Bearer fc')
+    assert.equal(seen.body.query, 'q')
+    assert.equal(r.sources[0].url, 'https://f.example')
+  } finally { restore() }
+})
+
+test('firecrawl fetch: POST /v1/scrape 返回 markdown', async () => {
+  const restore = stubFetch(async () => ({ json: { data: { markdown: '# page', metadata: { sourceURL: 'https://f.example' } } } }))
+  try {
+    const r = await backends.firecrawl.fetch({ apiKey: 'fc' }, { url: 'https://f.example' }, undefined)
+    assert.equal(r.content, '# page')
+    assert.equal(r.url, 'https://f.example')
+  } finally { restore() }
+})
+
+test('jina fetch: r.jina.ai reader', async () => {
+  let seen = null
+  const restore = stubFetch(async (url) => { seen = url; return { text: '# md' } })
+  try {
+    const r = await backends.jina.fetch({ apiKey: 'jk' }, { url: 'https://ex.com/a' }, undefined)
+    assert.ok(String(seen).includes('r.jina.ai'))
+    assert.equal(r.content, '# md')
+  } finally { restore() }
+})

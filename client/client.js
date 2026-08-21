@@ -23,7 +23,7 @@ const NS = 'searchPool'
 const LS = {
   zh: {
     nav: '搜索池',
-    desc: '配置各大搜索后端的 API Key 与路由策略。密钥仅存储于本地 settings.yaml，保存即热生效（无需重启）。',
+    desc: '配置各大搜索 / 抓取后端的 API Key 与路由策略。密钥仅存储于本地 settings.yaml，保存即热生效（无需重启）。同一引擎可换行填多个 Key。',
     keysTitle: '后端引擎列表',
     backend: '后端引擎',
     key: 'API Key 凭证',
@@ -33,7 +33,7 @@ const LS = {
     stClosed: '正常',
     stOpen: '冷却中',
     stQuota: '额度熔断',
-    placeholder: '留空保持现有配置',
+    placeholder: '留空保持现有配置；多 Key 换行或逗号分隔',
     save: '保存配置',
     saving: '正在保存…',
     saved: '配置已保存，实时生效 ✓',
@@ -79,7 +79,7 @@ const LS = {
   },
   en: {
     nav: 'Search Pool',
-    desc: 'Manage API keys and routing strategies for search backends. Keys are stored locally in settings.yaml only and take effect immediately.',
+    desc: 'Manage API keys and routing for search/fetch backends. Keys stay in local settings.yaml and take effect immediately. Multiple keys per engine: one per line.',
     keysTitle: 'Search Backends',
     backend: 'Backend',
     key: 'API Key Credential',
@@ -89,7 +89,7 @@ const LS = {
     stClosed: 'healthy',
     stOpen: 'cooldown',
     stQuota: 'quota cooldown',
-    placeholder: 'leave empty to keep current',
+    placeholder: 'leave empty to keep current; multiple keys: one per line or comma-separated',
     save: 'Save Changes',
     saving: 'Saving…',
     saved: 'Saved, effective now ✓',
@@ -630,7 +630,11 @@ function SearchPoolSection({ t }) {
                       },
                     }, t('customTag')),
                   ),
-                  React.createElement('div', { style: { opacity: 0.55, fontSize: '11px', marginTop: '1px' } }, b.kind),
+                  React.createElement('div', { style: { opacity: 0.55, fontSize: '11px', marginTop: '1px' } },
+                    b.kind,
+                    b.hasFetch ? ' · fetch' : '',
+                    b.keyCount > 1 ? ` · ${b.keyCount} keys` : '',
+                  ),
                   quotaText && React.createElement('div', { style: { fontSize: '10px', color: '#2f9e44', marginTop: '2px', fontWeight: 500 } }, quotaText),
                   testRes && React.createElement('div', {
                     style: {
@@ -645,11 +649,13 @@ function SearchPoolSection({ t }) {
                       : `✗ ${testRes.error ?? t('quotaError')}`,
                   ),
                 ),
-                // 2. API Key 输入框
+                // 2. API Key 输入框 (支持多行多 Key)
                 React.createElement('div', { style: { minWidth: 0 } },
-                  React.createElement('input', {
-                    style: { ...input, padding: '6px 8px' },
-                    type: 'password',
+                  React.createElement('textarea', {
+                    style: { ...input, padding: '6px 8px', minHeight: '38px', resize: 'vertical', lineHeight: 1.4 },
+                    rows: 1,
+                    spellCheck: false,
+                    autoComplete: 'off',
                     placeholder: b.hasKey ? `${t('hasKey')} · ${t('placeholder')}` : t('placeholder'),
                     value: keys[b.id] ?? '',
                     onChange: (e) => setKeys((k) => ({ ...k, [b.id]: e.target.value })),

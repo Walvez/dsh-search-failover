@@ -4,6 +4,7 @@
 - id: web
   config:
     searchProvider: search-pool
+    fetchProvider: search-pool
 - insert:
     - id: search-pool
       name: dsh-search-failover

@@ -164,3 +164,11 @@ test('mergeConfigWithSettings: removed 过滤行内后端 (删除内置后恢复
   assert.equal(restored.backends.some((b) => b.id === 'exa'), true)
   assert.equal(restored.backends.length, 2)
 })
+
+test('splitKeys: 换行与逗号分隔, 去空白', async () => {
+  const { splitKeys } = await import('../lib/settings.js')
+  assert.deepEqual(splitKeys('a\nb\n'), ['a', 'b'])
+  assert.deepEqual(splitKeys('a, b, c'), ['a', 'b', 'c'])
+  assert.deepEqual(splitKeys(''), [])
+  assert.deepEqual(splitKeys(null), [])
+})

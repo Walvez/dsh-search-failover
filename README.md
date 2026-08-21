@@ -9,15 +9,31 @@
 </p>
 
 <p align="center">
-  <b>DeepSeek Harness (DSH) 原生 provider 级智能搜索池插件</b><br>
-  多源容灾（Failover）· 加权轮询（Weighted Rotate）· 额度感知熔断 · AI 自主换源 · 实时 Web GUI 设置面板
+  <b>DeepSeek Harness (DSH) 原生 provider 级智能搜索 / 抓取池</b><br>
+  直连检索端点，模型 Token = 0 · 多源容灾 · 加权轮询 · 额度感知熔断 · AI 自主换源 · 实时 Web GUI
 </p>
+
+---
+
+## 为什么不用官方默认搜索？
+
+DSH 默认通道 `deepseek-official` **不是专用搜索 API**：每次 `web_search` 都会发起一轮完整 Messages 模型调用，由 DeepSeek 在服务端执行搜索。这意味着：
+
+| | 官方 `deepseek-official` | 本插件 `search-pool` |
+|---|---|---|
+| 检索方式 | 一整轮 LLM 调用 + 服务端 `web_search` 工具 | 直连 Exa / Tavily / Jina / Firecrawl 等检索端点 |
+| 模型 token | 每次搜索都烧（input + output），结果还会回灌上下文 | **0**（纯检索，不碰任何 LLM） |
+| 计费来源 | `DEEPSEEK_API_KEY` 余额 | 各引擎自己的免费额度 |
+| 抓取 `web_fetch` | 同样走官方通道 | 同步接管：Jina Reader / Exa Contents / Tavily Extract / Firecrawl Scrape |
+| 宕机 / 额度耗尽 | 整条链路挂掉 | 熔断冷却 + 自动下探下一个引擎 / 下一个 Key |
+
+装上即把 `searchProvider` 与 `fetchProvider` 都指到 `search-pool`。卸载后自动回落到官方通道。
 
 ---
 
 ## ✨ 核心特性
 
-- 🛡️ **Provider 级透明替换**：无侵入接管 DSH `ctx.web`，保持原生 `web_search` 工具签名完全不变，会话与 Agent 零感知。
+- 🛡️ **Provider 级透明替换**：无侵入接管 DSH `ctx.web` 的 **搜索 + 抓取**，保持原生 `web_search` / `web_fetch` 工具签名不变。
 - 🔄 **双重路由策略**：
   - **优先顺序 (Failover)**：按优先级从高到低依次尝试，前一个后端失败或熔断自动下探下一个。
   - **加权轮询 (Weighted Rotate)**：按 1~10 权重将搜索流量平摊到所有健康引擎，最大化榨干各大搜索源的免费额度。
@@ -30,8 +46,10 @@
 - 🎛️ **Web GUI 实时热生效设置面板**：
   - 在 DSH 设置页一键填写/修改 API Key、切换策略、拖拽排序、测试连通性，**保存即实时生效，无需重启进程**。
   - 密钥安全保存在本地 `~/.dsh/settings.yaml`，绝不上报。
-- 🔌 **全生态搜索引擎适配**：
-  - 内置支持 **Exa**, **Serper.dev**, **Tavily** (支持 keyless 匿名档), **Jina Search**, **SerpApi**, **SearXNG** (自托管), **DuckDuckGo**, **Brave**。
+- 🔑 **单引擎多 Key 轮换**：同一后端可换行或逗号填多个 Key；Key A 额度耗尽先切 Key B，全部挂了才熔断下探下一个引擎。
+- 🔌 **全生态适配**：
+  - 搜索：**Exa**, **Serper**, **Tavily** (keyless 匿名档), **Jina**, **SerpApi**, **Firecrawl**, **SearXNG** (自托管), **DuckDuckGo**, **Brave**
+  - 抓取：Jina Reader (`r.jina.ai`) · Exa Contents · Tavily Extract · Firecrawl Scrape
 
 ---
 
@@ -114,14 +132,18 @@ dsh plugin --profile web add link:$(pwd)/dsh-search-failover
         kind: jina
         apiKeyEnv: JINA_API_KEY
         priority: 4
+      - id: firecrawl
+        kind: firecrawl
+        apiKeyEnv: FIRECRAWL_API_KEY
+        priority: 5
       - id: serpapi
         kind: serpapi
         apiKeyEnv: SERPAPI_API_KEY
-        priority: 5
+        priority: 6
       - id: searxng
         kind: searxng
         baseURL: http://127.0.0.1:8080
-        priority: 6
+        priority: 7
     circuit:
       threshold: 3              # 连续错误阈值
       burstWindowMs: 300000     # 统计时间窗口 (5 分钟)
@@ -141,16 +163,19 @@ dsh web
 
 ## 📊 后端引擎支持与额度参考
 
-| 引擎标识 (`kind`) | 后端服务 | 官方免费额度 (核实) | 密钥要求 | 特性与说明 |
-|---|---|---|---|---|
-| `exa` | **Exa (Metaphor)** | 注册送 $20，每月赠 $10（学生认证 $1000） | 必须 | 语义神经搜索，质量极高，推荐作为主力 |
-| `serper` | **Serper.dev** | 注册赠送 2,500 次调用 | 必须 | Google SERP 原生结果，速度快 (~2s) |
-| `tavily` | **Tavily** | 每月 1,000 次免费额度 | 可选 | 专为 LLM 设计，无 key 时自动回退至官方匿名档 |
-| `jina` | **Jina Search** | 免费注册获取 API Key | 必须 | `s.jina.ai` Markdown 深度提取 |
-| `serpapi` | **SerpApi** | 每月 250 次免费搜索 | 必须 | 支持实时账户额度余量查询 |
-| `searxng` | **SearXNG** | 自托管，完全无限免费 | 无 | 需在自建实例中开启 `format: json` |
-| `brave` | **Brave Search** | 需绑卡订阅 | 必须 | 商业索引 |
-| `ddg` | **DuckDuckGo** | 完全免费 | 无 | HTML 解析（受网络和反爬限制，适合最后兜底） |
+| 引擎标识 (`kind`) | 搜索 | 抓取 | 官方免费额度 (核实) | 密钥 | 申请页 |
+|---|:---:|:---:|---|---|---|
+| `exa` | ✓ | ✓ | 注册送 $20，每月赠 $10 | 必须 | [dashboard.exa.ai](https://dashboard.exa.ai/api-keys) |
+| `serper` | ✓ | ✗ | 注册赠送 2,500 次 | 必须 | [serper.dev](https://serper.dev/dashboard) |
+| `tavily` | ✓ | ✓ | 每月 1,000 credits；无 key 走匿名档 | 可选 | [app.tavily.com](https://app.tavily.com) |
+| `jina` | ✓ | ✓ | 免费注册 Key；`s.jina.ai` 搜索 / `r.jina.ai` 抓取 | 必须 | [jina.ai](https://jina.ai) |
+| `firecrawl` | ✓ | ✓ | 每月 1,000 credits | 必须 | [firecrawl.dev](https://www.firecrawl.dev/app/api-keys) |
+| `serpapi` | ✓ | ✗ | 每月 250 次，支持实时额度查询 | 必须 | [serpapi.com](https://serpapi.com/manage-api-key) |
+| `searxng` | ✓ | ✗ | 自托管无限 | 无 | [docs.searxng.org](https://docs.searxng.org) |
+| `brave` | ✓ | ✗ | 需绑卡 | 必须 | [brave.com/search/api](https://brave.com/search/api/) |
+| `ddg` | ✓ | ✗ | 完全免费 | 无 | — |
+
+同一后端可换行或逗号填多个 Key。Key A 额度耗尽先切 Key B，全部挂了才熔断下探下一个引擎。
 
 ---
 
@@ -184,7 +209,8 @@ dsh web
 
 在 DSH Web 管理界面（**设置 → 搜索池**）中：
 
-- **实时密钥填写**：随时填写或更新各引擎 API Key，点击保存立即热生效。
+- **实时密钥填写**：随时填写或更新各引擎 API Key（支持多行多 Key），点击保存立即热生效。行内「获取 API Key ↗」直达申请页。
+- **网页抓取接管**：`web_fetch` 同步走搜索池（Jina Reader / Exa / Tavily / Firecrawl），享受同一套熔断与多 Key。
 - **一键测试连接 (▶)**：对指定后端发起 1 条测试搜索，毫秒级反馈连通状态与响应耗时。
 - **动态优先级调整 (↑ / ↓)**：通过按钮调整引擎在 Failover 链中的优先级。
 - **轮询权重调节**：在轮询分摊模式下，为不同引擎设置 1~10 权重值。
