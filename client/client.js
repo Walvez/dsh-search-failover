@@ -74,8 +74,9 @@ const LS = {
     test: '测试连接',
     testing: '测试中…',
     testOk: '测试成功',
-    tipTitle: '💡 AI 自主换源支持',
-    tipDesc: '本插件已为 Agent 注册 web_search_from(query, source) 工具。当 AI 认为默认搜索结果不理想时，可自主指定 exa / serper / tavily / jina 等引擎重试与对比。',
+    tipTitle: '💡 零 Token 消耗 & AI 自主换源',
+    tipDesc: '搜索与抓取直接对接各引擎 API，不产生模型 Token 消耗。AI 觉得默认搜索结果不理想时，可自主调用 web_search_from(query, source) 换源对比。',
+    openUrl: '前往获取 Key ↗',
   },
   en: {
     nav: 'Search Pool',
@@ -130,26 +131,28 @@ const LS = {
     test: 'Test Connection',
     testing: 'Testing…',
     testOk: 'Healthy',
-    tipTitle: '💡 AI Source Switching Support',
-    tipDesc: 'The plugin registers the web_search_from(query, source) tool. When AI finds default results unsatisfactory, it can independently re-search with specific engines (exa, serper, tavily, jina, etc.).',
+    tipTitle: '💡 Zero Model Token & AI Source Switching',
+    tipDesc: 'Search and fetch hit engine APIs directly with 0 model token cost. AI can use web_search_from(query, source) to retry with specific engines if needed.',
+    openUrl: 'Get Key ↗',
   },
 }
 
 // 现代化设计规范样式常量
 const card = {
-  background: 'rgba(127, 127, 127, 0.05)',
-  border: '1px solid rgba(128, 128, 128, 0.16)',
-  borderRadius: '10px',
+  background: 'rgba(127, 127, 127, 0.04)',
+  border: '1px solid rgba(128, 128, 128, 0.14)',
+  borderRadius: '12px',
   padding: '16px',
   marginBottom: '16px',
+  boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
 }
 
 const input = {
   width: '100%',
   boxSizing: 'border-box',
   padding: '7px 11px',
-  borderRadius: '7px',
-  border: '1px solid rgba(128, 128, 128, 0.28)',
+  borderRadius: '8px',
+  border: '1px solid rgba(128, 128, 128, 0.22)',
   background: 'rgba(0, 0, 0, 0.12)',
   color: 'inherit',
   fontFamily: 'inherit',
@@ -162,6 +165,7 @@ const buttonPrimary = {
   display: 'inline-flex',
   alignItems: 'center',
   justifyContent: 'center',
+  gap: '6px',
   padding: '8px 18px',
   borderRadius: '8px',
   border: '1px solid rgba(37, 99, 235, 0.3)',
@@ -178,11 +182,12 @@ const buttonGhost = {
   display: 'inline-flex',
   alignItems: 'center',
   justifyContent: 'center',
-  padding: '7px 15px',
+  gap: '4px',
+  padding: '7px 14px',
   borderRadius: '8px',
-  border: '1px solid rgba(128, 128, 128, 0.3)',
+  border: '1px solid rgba(128, 128, 128, 0.25)',
   cursor: 'pointer',
-  background: 'rgba(127, 127, 127, 0.08)',
+  background: 'rgba(127, 127, 127, 0.06)',
   color: 'inherit',
   fontSize: '13px',
   fontWeight: 500,
@@ -193,7 +198,7 @@ const badgeStyle = (theme) => {
   if (theme === 'green') {
     return {
       display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-      padding: '2px 6px', borderRadius: '10px', fontSize: '11px', fontWeight: 600,
+      padding: '3px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: 600,
       background: 'rgba(47, 158, 68, 0.14)', color: '#2f9e44',
       border: '1px solid rgba(47, 158, 68, 0.28)',
       whiteSpace: 'nowrap',
@@ -202,7 +207,7 @@ const badgeStyle = (theme) => {
   if (theme === 'orange') {
     return {
       display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-      padding: '2px 6px', borderRadius: '10px', fontSize: '11px', fontWeight: 600,
+      padding: '3px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: 600,
       background: 'rgba(232, 89, 12, 0.14)', color: '#e8590c',
       border: '1px solid rgba(232, 89, 12, 0.28)',
       whiteSpace: 'nowrap',
@@ -211,7 +216,7 @@ const badgeStyle = (theme) => {
   if (theme === 'yellow') {
     return {
       display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-      padding: '2px 6px', borderRadius: '10px', fontSize: '11px', fontWeight: 600,
+      padding: '3px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: 600,
       background: 'rgba(245, 159, 0, 0.14)', color: '#f59f00',
       border: '1px solid rgba(245, 159, 0, 0.28)',
       whiteSpace: 'nowrap',
@@ -219,7 +224,7 @@ const badgeStyle = (theme) => {
   }
   return {
     display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-    padding: '2px 6px', borderRadius: '10px', fontSize: '11px', fontWeight: 600,
+    padding: '3px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: 600,
     background: 'rgba(128, 128, 128, 0.14)', color: 'inherit',
     border: '1px solid rgba(128, 128, 128, 0.28)',
     whiteSpace: 'nowrap',
@@ -230,26 +235,39 @@ const iconBtn = {
   display: 'inline-flex',
   alignItems: 'center',
   justifyContent: 'center',
-  width: '20px',
-  height: '20px',
-  borderRadius: '4px',
-  border: '1px solid rgba(128, 128, 128, 0.2)',
-  background: 'rgba(127, 127, 127, 0.08)',
+  width: '28px',
+  height: '28px',
+  borderRadius: '6px',
+  border: '1px solid rgba(128, 128, 128, 0.18)',
+  background: 'rgba(127, 127, 127, 0.06)',
   color: 'inherit',
   cursor: 'pointer',
-  fontSize: '11px',
+  fontSize: '12px',
   padding: 0,
-  transition: 'background 0.15s ease, border-color 0.15s ease, opacity 0.15s ease',
+  transition: 'background 0.15s ease, border-color 0.15s ease, opacity 0.15s ease, transform 0.1s ease',
 }
 
 const linkStyle = {
   color: '#3b82f6',
   textDecoration: 'none',
   fontWeight: 600,
+  fontSize: '13px',
   display: 'inline-flex',
   alignItems: 'center',
-  gap: '3px',
+  gap: '4px',
 }
+
+const chipTag = (bg, color) => ({
+  display: 'inline-flex',
+  alignItems: 'center',
+  padding: '1px 6px',
+  borderRadius: '6px',
+  background: bg || 'rgba(127, 127, 127, 0.14)',
+  color: color || 'inherit',
+  fontSize: '10px',
+  fontWeight: 600,
+  letterSpacing: '0.2px',
+})
 
 function fmtCooldown(ms) {
   if (!ms || ms <= 0) return ''
@@ -500,7 +518,7 @@ function SearchPoolSection({ t }) {
 
   return React.createElement('div', { style: { padding: '4px 2px', fontSize: '13px', lineHeight: 1.6 } },
     // 顶部说明
-    React.createElement('div', { style: { marginBottom: '18px', opacity: 0.85, fontSize: '13px' } }, t('desc')),
+    React.createElement('div', { style: { marginBottom: '16px', opacity: 0.85, fontSize: '13px' } }, t('desc')),
 
     // 卡片 1: 路由策略
     React.createElement('div', { style: card },
@@ -518,9 +536,9 @@ function SearchPoolSection({ t }) {
         style: {
           display: 'inline-flex',
           padding: '3px',
-          borderRadius: '9px',
+          borderRadius: '10px',
           background: 'rgba(0, 0, 0, 0.15)',
-          border: '1px solid rgba(128, 128, 128, 0.2)',
+          border: '1px solid rgba(128, 128, 128, 0.18)',
           gap: '2px',
         },
       },
@@ -529,8 +547,8 @@ function SearchPoolSection({ t }) {
           return React.createElement('button', {
             key: s,
             style: {
-              padding: '6px 14px',
-              borderRadius: '7px',
+              padding: '7px 16px',
+              borderRadius: '8px',
               border: '0',
               cursor: busy ? 'default' : 'pointer',
               background: active ? 'linear-gradient(135deg, #2563eb, #1d4ed8)' : 'transparent',
@@ -548,136 +566,102 @@ function SearchPoolSection({ t }) {
       ),
     ),
 
-    // 卡片 2: 后端密钥列表 (Grid 布局)
+    // 卡片 2: 后端列表 (优雅卡片流布局，替代拥挤狭窄的表格)
     React.createElement('div', { style: card },
-      React.createElement('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' } },
-        React.createElement('h4', { style: { margin: 0, fontWeight: 600, fontSize: '14px' } }, t('keysTitle')),
+      React.createElement('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' } },
+        React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '8px' } },
+          React.createElement('h4', { style: { margin: 0, fontWeight: 600, fontSize: '14px' } }, t('keysTitle')),
+          React.createElement('span', { style: chipTag('rgba(37, 99, 235, 0.12)', '#3b82f6') }, `${backends.length} 个引擎`),
+        ),
         React.createElement('button', {
-          style: { ...buttonGhost, padding: '4px 10px', fontSize: '12px' },
+          style: { ...buttonGhost, padding: '5px 12px', fontSize: '12px' },
           disabled: busy,
           onClick: () => setShowAdd((v) => !v),
         }, showAdd ? t('cancel') : '+ ' + t('addTitle')),
       ),
-      React.createElement('div', null,
-        (function () {
-          const gridCols = strategy === 'rotate'
-            ? '95px minmax(70px, 1fr) 60px 24px 34px 24px 42px 22px'
-            : '95px minmax(70px, 1fr) 60px 24px 24px 42px 22px'
-          const gridBase = { display: 'grid', gridTemplateColumns: gridCols, columnGap: '6px', alignItems: 'center' }
-          const center = { textAlign: 'center' }
-          return [
-            // 表头
+
+      // 引擎卡片流
+      React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: '10px' } },
+        backends.map((b, idx) => {
+          const q = quota?.quota?.[b.id]
+          let quotaText = null
+          if (q && !q.error) {
+            quotaText = `${q.plan} · ${t('quotaLeft')} ${q.remaining}/${q.limit}${q.resetAt ? ' · ' + q.resetAt.slice(0, 10) : ''}`
+          } else if (q && q.error) {
+            quotaText = t('quotaError')
+          }
+          const testRes = testResults[b.id]
+
+          return React.createElement('div', {
+            key: b.id,
+            style: {
+              background: 'rgba(127, 127, 127, 0.03)',
+              border: '1px solid rgba(128, 128, 128, 0.14)',
+              borderRadius: '10px',
+              padding: '12px 14px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '10px',
+              transition: 'border-color 0.15s ease, background 0.15s ease',
+            },
+          },
+            // 第一行：引擎名称、标签、状态、操作按钮组
             React.createElement('div', {
-              key: 'head',
               style: {
-                ...gridBase,
-                borderBottom: '1px solid rgba(128, 128, 128, 0.25)',
-                fontSize: '11px',
-                fontWeight: 600,
-                letterSpacing: '0.3px',
-                opacity: 0.65,
-                padding: '6px 2px 8px',
-                textTransform: 'uppercase',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '8px',
               },
             },
-              React.createElement('div', null, t('backend')),
-              React.createElement('div', null, t('key')),
-              React.createElement('div', { style: center }, t('status')),
-              React.createElement('div', { style: center }, t('hasKey')),
-              strategy === 'rotate' && React.createElement('div', { style: { ...center, title: t('weightHint') } }, t('weightLabel')),
-              React.createElement('div', { style: { ...center, gridColumn: strategy === 'rotate' ? '6 / span 3' : '5 / span 3', opacity: 0.8 } }, '操作'),
-            ),
-            // 数据行
-            ...backends.map((b, idx) => {
-              const q = quota?.quota?.[b.id]
-              let quotaText = null
-              if (q && !q.error) {
-                quotaText = q.plan + ' · ' + t('quotaLeft') + ' '
-                  + q.remaining + '/' + q.limit + (q.resetAt ? ' · ' + q.resetAt.slice(0, 10) : '')
-              } else if (q && q.error) {
-                quotaText = t('quotaError')
-              }
-              const testRes = testResults[b.id]
-              return React.createElement('div', {
-                key: b.id,
-                style: {
-                  ...gridBase,
-                  borderBottom: '1px solid rgba(128, 128, 128, 0.12)',
-                  padding: '8px 2px',
-                  transition: 'background 0.15s ease',
+              // 左侧：引擎标识 & 属性标签
+              React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' } },
+                // 引擎超链接 / 纯文本
+                b.site
+                  ? React.createElement('a', {
+                      href: b.site,
+                      target: '_blank',
+                      rel: 'noopener noreferrer',
+                      style: linkStyle,
+                      title: b.site,
+                    }, b.id, React.createElement('span', { style: { fontSize: '11px', opacity: 0.7 } }, '↗'))
+                  : React.createElement('span', { style: { fontWeight: 600, fontSize: '13px' } }, b.id),
+
+                // 引擎类型标签
+                React.createElement('span', { style: chipTag() }, b.kind),
+
+                // 自定义后端标签
+                b.custom && React.createElement('span', {
+                  style: chipTag('rgba(147, 51, 234, 0.12)', '#a855f7'),
+                }, t('customTag')),
+
+                // 抓取支持标签
+                b.hasFetch && React.createElement('span', {
+                  style: chipTag('rgba(59, 130, 246, 0.12)', '#3b82f6'),
+                }, 'Fetch 抓取'),
+
+                // 多 Key 计数标签
+                b.keyCount > 1 && React.createElement('span', {
+                  style: chipTag('rgba(16, 185, 129, 0.12)', '#10b981'),
+                }, `${b.keyCount} Keys`),
+
+                // 健康状态药丸
+                b.state === 'closed'
+                  ? React.createElement('span', { style: badgeStyle('green') }, t('stClosed'))
+                  : React.createElement('span', { style: badgeStyle(b.quota ? 'orange' : 'yellow') },
+                      (b.quota ? t('stQuota') : t('stOpen')) + (b.cooldownMs ? ` ${fmtCooldown(b.cooldownMs)}` : '')),
+              ),
+
+              // 右侧：测试、排序、删除操作栏
+              React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '6px' } },
+                // 轮询权重输入
+                strategy === 'rotate' && React.createElement('div', {
+                  style: { display: 'inline-flex', alignItems: 'center', gap: '4px', marginRight: '4px' },
                 },
-              },
-                // 1. 后端名与信息
-                React.createElement('div', { style: { minWidth: 0 } },
-                  React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '4px' } },
-                    b.site
-                      ? React.createElement('a', {
-                          href: b.site,
-                          target: '_blank',
-                          rel: 'noopener noreferrer',
-                          style: linkStyle,
-                          title: b.site,
-                        }, b.id, React.createElement('span', { style: { fontSize: '10px', opacity: 0.7 } }, '↗'))
-                      : React.createElement('span', { style: { fontWeight: 600 } }, b.id),
-                    b.custom && React.createElement('span', {
-                      style: {
-                        display: 'inline-block',
-                        padding: '1px 4px',
-                        borderRadius: '4px',
-                        background: 'rgba(127, 127, 127, 0.18)',
-                        fontSize: '10px',
-                        opacity: 0.8,
-                      },
-                    }, t('customTag')),
-                  ),
-                  React.createElement('div', { style: { opacity: 0.55, fontSize: '11px', marginTop: '1px' } },
-                    b.kind,
-                    b.hasFetch ? ' · fetch' : '',
-                    b.keyCount > 1 ? ` · ${b.keyCount} keys` : '',
-                  ),
-                  quotaText && React.createElement('div', { style: { fontSize: '10px', color: '#2f9e44', marginTop: '2px', fontWeight: 500 } }, quotaText),
-                  testRes && React.createElement('div', {
-                    style: {
-                      fontSize: '10px',
-                      marginTop: '2px',
-                      color: testRes.ok ? '#2f9e44' : '#e8590c',
-                      fontWeight: 500,
-                    },
-                  },
-                    testRes.ok
-                      ? `✓ ${t('testOk')} (${testRes.sources} 条, ${testRes.ms}ms)`
-                      : `✗ ${testRes.error ?? t('quotaError')}`,
-                  ),
-                ),
-                // 2. API Key 输入框 (支持多行多 Key)
-                React.createElement('div', { style: { minWidth: 0 } },
-                  React.createElement('textarea', {
-                    style: { ...input, padding: '6px 8px', minHeight: '38px', resize: 'vertical', lineHeight: 1.4 },
-                    rows: 1,
-                    spellCheck: false,
-                    autoComplete: 'off',
-                    placeholder: b.hasKey ? `${t('hasKey')} · ${t('placeholder')}` : t('placeholder'),
-                    value: keys[b.id] ?? '',
-                    onChange: (e) => setKeys((k) => ({ ...k, [b.id]: e.target.value })),
-                  }),
-                ),
-                // 3. 熔断状态 Badge
-                React.createElement('div', { style: center },
-                  b.state === 'closed'
-                    ? React.createElement('span', { style: badgeStyle('green') }, t('stClosed'))
-                    : React.createElement('span', { style: badgeStyle(b.quota ? 'orange' : 'yellow') },
-                        (b.quota ? t('stQuota') : t('stOpen')) + (b.cooldownMs ? ` ${fmtCooldown(b.cooldownMs)}` : '')),
-                ),
-                // 4. 是否已配置 Key
-                React.createElement('div', { style: center },
-                  b.hasKey
-                    ? React.createElement('span', { style: { color: '#2f9e44', fontWeight: 600, fontSize: '12px' } }, '✓')
-                    : React.createElement('span', { style: { color: '#e8590c', fontSize: '12px', opacity: 0.6 } }, '—'),
-                ),
-                // 5. 权重设置 (仅 Rotate 模式)
-                strategy === 'rotate' && React.createElement('div', { style: center },
+                  React.createElement('span', { style: { fontSize: '11px', opacity: 0.6 } }, t('weightLabel') + ':'),
                   React.createElement('input', {
-                    style: { ...input, width: '32px', padding: '4px 2px', textAlign: 'center', fontSize: '11px' },
+                    style: { ...input, width: '36px', padding: '3px 4px', textAlign: 'center', fontSize: '12px' },
                     type: 'number',
                     min: 1,
                     max: 10,
@@ -686,55 +670,107 @@ function SearchPoolSection({ t }) {
                     onChange: (e) => setWeight(b.id, e.target.value),
                   }),
                 ),
-                // 6. 测试按钮
-                React.createElement('div', { style: center },
-                  React.createElement('button', {
-                    style: {
-                      ...iconBtn,
-                      color: testBusy === b.id ? '#3b82f6' : 'inherit',
-                      borderColor: testBusy === b.id ? '#3b82f6' : iconBtn.border,
-                    },
-                    title: t('test'),
-                    disabled: busy || testBusy !== null,
-                    onClick: () => testBackend(b.id),
-                  }, testBusy === b.id ? '…' : '▶'),
+
+                // 测试按钮
+                React.createElement('button', {
+                  style: {
+                    ...iconBtn,
+                    width: 'auto',
+                    padding: '0 8px',
+                    height: '26px',
+                    gap: '4px',
+                    color: testBusy === b.id ? '#3b82f6' : 'inherit',
+                    borderColor: testBusy === b.id ? '#3b82f6' : iconBtn.border,
+                  },
+                  title: t('test'),
+                  disabled: busy || testBusy !== null,
+                  onClick: () => testBackend(b.id),
+                },
+                  React.createElement('span', { style: { fontSize: '10px' } }, testBusy === b.id ? '…' : '▶'),
+                  React.createElement('span', { style: { fontSize: '11px' } }, t('test')),
                 ),
-                // 7. 排序上移下移
-                React.createElement('div', { style: { ...center, display: 'flex', gap: '2px', justifyContent: 'center' } },
-                  React.createElement('button', {
-                    style: { ...iconBtn, width: '19px' },
-                    title: t('moveUp'),
-                    disabled: busy || idx === 0,
-                    onClick: () => moveBackend(b.id, -1),
-                  }, '↑'),
-                  React.createElement('button', {
-                    style: { ...iconBtn, width: '19px' },
-                    title: t('moveDown'),
-                    disabled: busy || idx === backends.length - 1,
-                    onClick: () => moveBackend(b.id, 1),
-                  }, '↓'),
-                ),
-                // 8. 删除按钮
-                React.createElement('div', { style: center },
-                  React.createElement('button', {
-                    style: { ...iconBtn, color: '#e8590c' },
-                    title: '移除后端',
-                    disabled: busy,
-                    onClick: () => removeBackend(b.id),
-                  }, '✕'),
-                ),
-              )
-            }),
-            state === null && !error && React.createElement('div', {
-              key: 'loading',
-              style: { opacity: 0.6, gridColumn: '1 / -1', padding: '16px 0', textAlign: 'center' },
-            }, t('loading')),
-            backends.length === 0 && state !== null && React.createElement('div', {
-              key: 'empty',
-              style: { opacity: 0.6, gridColumn: '1 / -1', padding: '16px 0', textAlign: 'center' },
-            }, '( 无可用后端引擎 )'),
-          ]
-        })(),
+
+                // 上下移动排序
+                React.createElement('button', {
+                  style: { ...iconBtn, width: '26px', height: '26px' },
+                  title: t('moveUp'),
+                  disabled: busy || idx === 0,
+                  onClick: () => moveBackend(b.id, -1),
+                }, '↑'),
+                React.createElement('button', {
+                  style: { ...iconBtn, width: '26px', height: '26px' },
+                  title: t('moveDown'),
+                  disabled: busy || idx === backends.length - 1,
+                  onClick: () => moveBackend(b.id, 1),
+                }, '↓'),
+
+                // 移除按钮
+                React.createElement('button', {
+                  style: { ...iconBtn, width: '26px', height: '26px', color: '#e8590c' },
+                  title: '移除后端',
+                  disabled: busy,
+                  onClick: () => removeBackend(b.id),
+                }, '✕'),
+              ),
+            ),
+
+            // 第二行：API Key 输入区域 (支持多行多 Key)
+            React.createElement('div', { style: { position: 'relative' } },
+              React.createElement('textarea', {
+                style: {
+                  ...input,
+                  padding: '8px 12px',
+                  minHeight: '40px',
+                  resize: 'vertical',
+                  lineHeight: 1.5,
+                  fontSize: '12px',
+                  fontFamily: 'monospace, sans-serif',
+                },
+                rows: 1,
+                spellCheck: false,
+                autoComplete: 'off',
+                placeholder: b.hasKey ? `${t('hasKey')} · ${t('placeholder')}` : t('placeholder'),
+                value: keys[b.id] ?? '',
+                onChange: (e) => setKeys((k) => ({ ...k, [b.id]: e.target.value })),
+              }),
+            ),
+
+            // 第三行 (可选)：额度与测试结果提示
+            (quotaText || testRes) && React.createElement('div', {
+              style: {
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '8px',
+                fontSize: '11px',
+                marginTop: '-4px',
+              },
+            },
+              quotaText && React.createElement('span', { style: { color: '#2f9e44', fontWeight: 500 } }, quotaText),
+              testRes && React.createElement('span', {
+                style: {
+                  color: testRes.ok ? '#2f9e44' : '#e8590c',
+                  fontWeight: 500,
+                  marginLeft: 'auto',
+                },
+              },
+                testRes.ok
+                  ? `✓ ${t('testOk')} (${testRes.sources} 条结果 · ${testRes.ms}ms)`
+                  : `✗ ${testRes.error ?? t('quotaError')}`,
+              ),
+            ),
+          )
+        }),
+
+        // 空状态与加载中
+        state === null && !error && React.createElement('div', {
+          style: { opacity: 0.6, padding: '24px 0', textAlign: 'center' },
+        }, t('loading')),
+
+        backends.length === 0 && state !== null && React.createElement('div', {
+          style: { opacity: 0.6, padding: '24px 0', textAlign: 'center' },
+        }, '( 无可用后端引擎，请点击上方添加 )'),
       ),
     ),
 
@@ -742,7 +778,7 @@ function SearchPoolSection({ t }) {
     showAdd && React.createElement('div', {
       style: {
         ...card,
-        borderColor: 'rgba(59, 130, 246, 0.3)',
+        borderColor: 'rgba(59, 130, 246, 0.35)',
         background: 'rgba(59, 130, 246, 0.04)',
       },
     },
@@ -770,9 +806,9 @@ function SearchPoolSection({ t }) {
           value: addForm.baseURL,
           onChange: (e) => setAddForm((f) => ({ ...f, baseURL: e.target.value })),
         }),
-        React.createElement('input', {
-          style: input,
-          type: 'password',
+        React.createElement('textarea', {
+          style: { ...input, minHeight: '40px', resize: 'vertical', fontFamily: 'monospace, sans-serif' },
+          rows: 1,
           placeholder: t('addKey'),
           value: addForm.apiKey,
           onChange: (e) => setAddForm((f) => ({ ...f, apiKey: e.target.value })),
@@ -833,16 +869,16 @@ function SearchPoolSection({ t }) {
     React.createElement('div', {
       style: {
         marginTop: '16px',
-        padding: '10px 14px',
-        borderRadius: '8px',
+        padding: '12px 16px',
+        borderRadius: '10px',
         background: 'rgba(59, 130, 246, 0.06)',
         border: '1px solid rgba(59, 130, 246, 0.16)',
         fontSize: '12px',
-        lineHeight: 1.5,
-        opacity: 0.85,
+        lineHeight: 1.6,
+        opacity: 0.9,
       },
     },
-      React.createElement('div', { style: { fontWeight: 600, color: '#3b82f6', marginBottom: '2px' } }, t('tipTitle')),
+      React.createElement('div', { style: { fontWeight: 600, color: '#3b82f6', marginBottom: '3px', fontSize: '13px' } }, t('tipTitle')),
       React.createElement('div', null, t('tipDesc')),
     ),
   )
