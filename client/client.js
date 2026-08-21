@@ -193,32 +193,36 @@ const badgeStyle = (theme) => {
   if (theme === 'green') {
     return {
       display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-      padding: '2px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: 600,
+      padding: '2px 6px', borderRadius: '10px', fontSize: '11px', fontWeight: 600,
       background: 'rgba(47, 158, 68, 0.14)', color: '#2f9e44',
       border: '1px solid rgba(47, 158, 68, 0.28)',
+      whiteSpace: 'nowrap',
     }
   }
   if (theme === 'orange') {
     return {
       display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-      padding: '2px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: 600,
+      padding: '2px 6px', borderRadius: '10px', fontSize: '11px', fontWeight: 600,
       background: 'rgba(232, 89, 12, 0.14)', color: '#e8590c',
       border: '1px solid rgba(232, 89, 12, 0.28)',
+      whiteSpace: 'nowrap',
     }
   }
   if (theme === 'yellow') {
     return {
       display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-      padding: '2px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: 600,
+      padding: '2px 6px', borderRadius: '10px', fontSize: '11px', fontWeight: 600,
       background: 'rgba(245, 159, 0, 0.14)', color: '#f59f00',
       border: '1px solid rgba(245, 159, 0, 0.28)',
+      whiteSpace: 'nowrap',
     }
   }
   return {
     display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-    padding: '2px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: 600,
+    padding: '2px 6px', borderRadius: '10px', fontSize: '11px', fontWeight: 600,
     background: 'rgba(128, 128, 128, 0.14)', color: 'inherit',
     border: '1px solid rgba(128, 128, 128, 0.28)',
+    whiteSpace: 'nowrap',
   }
 }
 
@@ -226,14 +230,14 @@ const iconBtn = {
   display: 'inline-flex',
   alignItems: 'center',
   justifyContent: 'center',
-  width: '26px',
-  height: '26px',
-  borderRadius: '6px',
+  width: '20px',
+  height: '20px',
+  borderRadius: '4px',
   border: '1px solid rgba(128, 128, 128, 0.2)',
   background: 'rgba(127, 127, 127, 0.08)',
   color: 'inherit',
   cursor: 'pointer',
-  fontSize: '12px',
+  fontSize: '11px',
   padding: 0,
   transition: 'background 0.15s ease, border-color 0.15s ease, opacity 0.15s ease',
 }
@@ -557,9 +561,9 @@ function SearchPoolSection({ t }) {
       React.createElement('div', null,
         (function () {
           const gridCols = strategy === 'rotate'
-            ? '140px minmax(130px, 1fr) 100px 52px 48px 36px 48px 30px'
-            : '140px minmax(130px, 1fr) 100px 52px 36px 48px 30px'
-          const gridBase = { display: 'grid', gridTemplateColumns: gridCols, columnGap: '10px', alignItems: 'center' }
+            ? '95px minmax(70px, 1fr) 60px 24px 34px 24px 42px 22px'
+            : '95px minmax(70px, 1fr) 60px 24px 24px 42px 22px'
+          const gridBase = { display: 'grid', gridTemplateColumns: gridCols, columnGap: '6px', alignItems: 'center' }
           const center = { textAlign: 'center' }
           return [
             // 表头
@@ -570,9 +574,9 @@ function SearchPoolSection({ t }) {
                 borderBottom: '1px solid rgba(128, 128, 128, 0.25)',
                 fontSize: '11px',
                 fontWeight: 600,
-                letterSpacing: '0.4px',
+                letterSpacing: '0.3px',
                 opacity: 0.65,
-                padding: '6px 4px 8px',
+                padding: '6px 2px 8px',
                 textTransform: 'uppercase',
               },
             },
@@ -599,13 +603,13 @@ function SearchPoolSection({ t }) {
                 style: {
                   ...gridBase,
                   borderBottom: '1px solid rgba(128, 128, 128, 0.12)',
-                  padding: '9px 4px',
+                  padding: '8px 2px',
                   transition: 'background 0.15s ease',
                 },
               },
                 // 1. 后端名与信息
                 React.createElement('div', { style: { minWidth: 0 } },
-                  React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '6px' } },
+                  React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '4px' } },
                     b.site
                       ? React.createElement('a', {
                           href: b.site,
@@ -618,8 +622,8 @@ function SearchPoolSection({ t }) {
                     b.custom && React.createElement('span', {
                       style: {
                         display: 'inline-block',
-                        padding: '1px 5px',
-                        borderRadius: '6px',
+                        padding: '1px 4px',
+                        borderRadius: '4px',
                         background: 'rgba(127, 127, 127, 0.18)',
                         fontSize: '10px',
                         opacity: 0.8,
@@ -627,10 +631,10 @@ function SearchPoolSection({ t }) {
                     }, t('customTag')),
                   ),
                   React.createElement('div', { style: { opacity: 0.55, fontSize: '11px', marginTop: '1px' } }, b.kind),
-                  quotaText && React.createElement('div', { style: { fontSize: '11px', color: '#2f9e44', marginTop: '2px', fontWeight: 500 } }, quotaText),
+                  quotaText && React.createElement('div', { style: { fontSize: '10px', color: '#2f9e44', marginTop: '2px', fontWeight: 500 } }, quotaText),
                   testRes && React.createElement('div', {
                     style: {
-                      fontSize: '11px',
+                      fontSize: '10px',
                       marginTop: '2px',
                       color: testRes.ok ? '#2f9e44' : '#e8590c',
                       fontWeight: 500,
@@ -644,7 +648,7 @@ function SearchPoolSection({ t }) {
                 // 2. API Key 输入框
                 React.createElement('div', { style: { minWidth: 0 } },
                   React.createElement('input', {
-                    style: input,
+                    style: { ...input, padding: '6px 8px' },
                     type: 'password',
                     placeholder: b.hasKey ? `${t('hasKey')} · ${t('placeholder')}` : t('placeholder'),
                     value: keys[b.id] ?? '',
@@ -662,12 +666,12 @@ function SearchPoolSection({ t }) {
                 React.createElement('div', { style: center },
                   b.hasKey
                     ? React.createElement('span', { style: { color: '#2f9e44', fontWeight: 600, fontSize: '12px' } }, '✓')
-                    : React.createElement('span', { style: { color: '#e8590c', fontSize: '12px', opacity: 0.7 } }, '—'),
+                    : React.createElement('span', { style: { color: '#e8590c', fontSize: '12px', opacity: 0.6 } }, '—'),
                 ),
                 // 5. 权重设置 (仅 Rotate 模式)
                 strategy === 'rotate' && React.createElement('div', { style: center },
                   React.createElement('input', {
-                    style: { ...input, width: '40px', padding: '4px', textAlign: 'center', fontSize: '12px' },
+                    style: { ...input, width: '32px', padding: '4px 2px', textAlign: 'center', fontSize: '11px' },
                     type: 'number',
                     min: 1,
                     max: 10,
@@ -690,15 +694,15 @@ function SearchPoolSection({ t }) {
                   }, testBusy === b.id ? '…' : '▶'),
                 ),
                 // 7. 排序上移下移
-                React.createElement('div', { style: { ...center, display: 'flex', gap: '3px', justifyContent: 'center' } },
+                React.createElement('div', { style: { ...center, display: 'flex', gap: '2px', justifyContent: 'center' } },
                   React.createElement('button', {
-                    style: iconBtn,
+                    style: { ...iconBtn, width: '19px' },
                     title: t('moveUp'),
                     disabled: busy || idx === 0,
                     onClick: () => moveBackend(b.id, -1),
                   }, '↑'),
                   React.createElement('button', {
-                    style: iconBtn,
+                    style: { ...iconBtn, width: '19px' },
                     title: t('moveDown'),
                     disabled: busy || idx === backends.length - 1,
                     onClick: () => moveBackend(b.id, 1),
