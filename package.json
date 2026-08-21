@@ -1,6 +1,6 @@
 {
   "name": "dsh-search-failover",
-  "version": "0.3.5",
+  "version": "0.3.6",
   "description": "Provider-level web search failover pool for DeepSeek Harness: rotate across 8 free/paid backends (Exa / Tavily / Serper / SerpApi / Jina / DuckDuckGo / SearXNG / Brave) with quota-aware circuit breaking, keeping the native web_search tool. Ships a settings page to manage API keys in the GUI.",
   "type": "module",
   "main": "lib/index.js",
