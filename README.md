@@ -10,7 +10,11 @@
 
 <p align="center">
   <b>DeepSeek Harness (DSH) 原生 provider 级智能搜索 / 抓取池</b><br>
-  直连检索端点，模型 Token = 0 · 多源容灾 · 加权轮询 · 额度感知熔断 · AI 自主换源 · 实时 Web GUI
+  直连检索端点，模型 Token = 0 · 多源容灾 · 加权轮询 · 额度感知熔断 · AI 自主换源 · 现代卡片流 Web GUI
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/settings-panel-overview.png" alt="DSH 搜索池设置面板" width="720">
 </p>
 
 ---
@@ -42,8 +46,8 @@ DSH 默认通道 `deepseek-official` **不是专用搜索 API**：每次 `web_se
   - 遇到临时网络抖动（Transient Error）→ 5 分钟内连续 3 次失败触发 **短冷却 (60s)**；
   - 冷却到期自动半开探活，成功立即恢复。
 - 🤖 **AI 自主换源技能 (`web_search_from`)**：
-  - 为 Agent 注入专属换源工具。当 AI 认为默认结果不够理想、信息过时或源单一时，可自主选择 `exa` / `serper` / `tavily` / `jina` 等引擎重新搜索并对比。
-- 🎛️ **Web GUI 实时热生效设置面板**：
+  - 为 Agent 注入专属换源工具。当 AI 认为默认结果不够理想、信息过时或源单一时，可自主选择 `exa` / `serper` / `tavily` / `jina` / `firecrawl` 等引擎重新搜索并对比。
+- 🎛️ **现代卡片流 Web GUI 设置面板**：
   - 在 DSH 设置页一键填写/修改 API Key、切换策略、拖拽排序、测试连通性，**保存即实时生效，无需重启进程**。
   - 密钥安全保存在本地 `~/.dsh/settings.yaml`，绝不上报。
 - 🔑 **单引擎多 Key 轮换**：同一后端可换行或逗号填多个 Key；Key A 额度耗尽先切 Key B，全部挂了才熔断下探下一个引擎。
@@ -59,10 +63,10 @@ DSH 默认通道 `deepseek-official` **不是专用搜索 API**：每次 `web_se
 ┌──────────────────────────────────────────────────────────────┐
 │                    AI Agent / User Chat                      │
 └──────────────┬────────────────────────────────┬──────────────┘
-               │ (默认搜索)                      │ (显式换源)
+               │ (默认搜索 / 抓取)                │ (显式换源)
                ▼                                ▼
 ┌──────────────────────────────┐ ┌─────────────────────────────┐
-│  web_search (DSH 原生工具)    │ │  web_search_from (增强工具)   │
+│  原生 web_search / web_fetch  │ │  web_search_from (增强工具)   │
 └──────────────┬───────────────┘ └──────────────┬──────────────┘
                │                                │
                ▼                                ▼
@@ -79,13 +83,31 @@ DSH 默认通道 `deepseek-official` **不是专用搜索 API**：每次 `web_se
 │   └── 额度耗尽(1h 冷却) / 瞬时错误(60s 冷却) / 探活恢复           │
 └──────────────────────────────┬───────────────────────────────┘
                                │
-   ┌──────────┬──────────┬─────┴────┬──────────┬──────────┐
-   ▼          ▼          ▼          ▼          ▼          ▼
-┌─────┐    ┌──────┐   ┌──────┐   ┌──────┐   ┌─────┐   ┌─────────┐
-│ Exa │    │Serper│   │Tavily│   │ Jina │   │Serp-│   │ SearXNG │
-│     │    │ .dev │   │(Anon)│   │  AI  │   │ Api │   │ (Local) │
-└─────┘    └──────┘   └──────┘   └──────┘   └─────┘   └─────────┘
+   ┌──────────┬──────────┬─────┴────┬──────────┬──────────┬──────────┐
+   ▼          ▼          ▼          ▼          ▼          ▼          ▼
+┌─────┐    ┌──────┐   ┌──────┐   ┌──────┐   ┌─────────┐┌─────┐   ┌─────────┐
+│ Exa │    │Serper│   │Tavily│   │ Jina │   │Firecrawl││Serp-│   │ SearXNG │
+│     │    │ .dev │   │(Anon)│   │  AI  │   │ .dev    ││ Api │   │ (Local) │
+└─────┘    └──────┘   └──────┘   └──────┘   └─────────┘└─────┘   └─────────┘
 ```
+
+---
+
+## 🎛️ 设置面板实机预览
+
+<div align="center">
+  <img src="docs/screenshots/settings-panel-overview.png" alt="DSH 搜索池控制台" width="48%">
+  &nbsp;
+  <img src="docs/screenshots/settings-panel-scrolled.png" alt="DSH 搜索池引擎卡片列表" width="48%">
+</div>
+
+- **实时密钥填写**：随时填写或更新各引擎 API Key（支持多行多 Key），点击保存立即热生效。行内「↗」直达各引擎申请页。
+- **网页抓取接管**：`web_fetch` 同步走搜索池（Jina Reader / Exa / Tavily / Firecrawl），享受同一套熔断与多 Key。
+- **一键测试连接 (▶ 测试)**：对指定后端发起 1 条测试搜索，毫秒级反馈连通状态与响应耗时。
+- **动态优先级调整 (↑ / ↓)**：通过按钮调整引擎在 Failover 链中的优先级。
+- **轮询权重调节**：在轮询分摊模式下，为不同引擎设置 1~10 权重值。
+- **添加自定义后端**：无需改写代码或配置文件，直接在界面添加 SearXNG 实例或新后端。
+- **额度余量透视**：行内直接显示支持额度查询的后端（如 SerpApi）的套餐类型、剩余次数及重置日期。
 
 ---
 
@@ -191,7 +213,7 @@ dsh web
   "description": "用指定的搜索后端(引擎)搜索当前信息并返回该源原始结果。可用于多源对比或换引擎重试。",
   "parameters": {
     "query": { "type": "string", "description": "搜索关键词" },
-    "source": { "type": "string", "description": "指定后端类型 (例如 exa, serper, tavily, jina, searxng 等)" },
+    "source": { "type": "string", "description": "指定后端类型 (例如 exa, serper, tavily, jina, firecrawl, searxng 等)" },
     "maxResults": { "type": "number", "description": "返回结果数量上限 (默认 8)" }
   }
 }
@@ -202,20 +224,6 @@ dsh web
 1. Agent 执行 `web_search(query="最新技术动态")` 走默认搜索池；
 2. 发现结果大多是旧闻或不相关，Agent 主动调用 `web_search_from(query="最新技术动态", source="serper")` 从 Google 实时索引获取结果；
 3. 对比各源信息，输出最准确、最及时的回答。
-
----
-
-## 🎛️ Web GUI 设置面板
-
-在 DSH Web 管理界面（**设置 → 搜索池**）中：
-
-- **实时密钥填写**：随时填写或更新各引擎 API Key（支持多行多 Key），点击保存立即热生效。行内「获取 API Key ↗」直达申请页。
-- **网页抓取接管**：`web_fetch` 同步走搜索池（Jina Reader / Exa / Tavily / Firecrawl），享受同一套熔断与多 Key。
-- **一键测试连接 (▶)**：对指定后端发起 1 条测试搜索，毫秒级反馈连通状态与响应耗时。
-- **动态优先级调整 (↑ / ↓)**：通过按钮调整引擎在 Failover 链中的优先级。
-- **轮询权重调节**：在轮询分摊模式下，为不同引擎设置 1~10 权重值。
-- **添加自定义后端**：无需改写代码或配置文件，直接在界面添加 SearXNG 实例或新后端。
-- **额度余量透视**：行内直接显示支持额度查询的后端（如 SerpApi）的套餐类型、剩余次数及重置日期。
 
 ---
 
