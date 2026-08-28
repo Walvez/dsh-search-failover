@@ -1,6 +1,6 @@
 {
   "name": "dsh-search-failover",
-  "version": "0.3.9",
+  "version": "0.3.11",
   "description": "Provider-level web search+fetch pool for DeepSeek Harness: bypass the official LLM search channel (0 model tokens), failover/rotate across Exa/Tavily/Jina/Firecrawl/Serper/SerpApi/SearXNG/DDG/Brave with quota-aware circuit breaking, multi-key rotation, and a GUI settings page.",
   "type": "module",
   "main": "lib/index.js",

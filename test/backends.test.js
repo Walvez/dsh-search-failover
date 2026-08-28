@@ -218,3 +218,153 @@ test('jina fetch: r.jina.ai reader', async () => {
     assert.equal(r.content, '# md')
   } finally { restore() }
 })
+
+// ── opencodex 后端 ───────────────────────────────────────────────────────────
+
+import { extractResponseText, parseSidecarSources } from '../lib/backends.js'
+
+const SIDECAR_RESPONSE = {
+  output: [
+    { type: 'reasoning', content: [{ type: 'reasoning_text', text: 'thinking…' }] },
+    {
+      type: 'message',
+      role: 'assistant',
+      content: [{
+        type: 'output_text',
+        text: [
+          'Node.js 22 LTS — https://nodejs.org/en/about/previous-releases — Current active LTS line since October 2024.',
+          'Node.js releases — https://github.com/nodejs/release#release-schedule — Official release schedule with LTS dates.',
+        ].join('\n'),
+      }],
+    },
+  ],
+}
+
+test('opencodex: POST /v1/responses 带 web_search tool + sources 解析', async () => {
+  let seen = null
+  const restore = stubFetch(async (url, init) => {
+    seen = { url, init, body: JSON.parse(init.body) }
+    return { json: SIDECAR_RESPONSE }
+  })
+  try {
+    const r = await backends.opencodex.search({ apiKey: '' }, { query: 'node lts', maxResults: 5 }, undefined)
+    assert.equal(seen.url, 'http://127.0.0.1:10100/v1/responses')
+    assert.equal(seen.init.headers.authorization, 'Bearer ocx_data_dsh')
+    assert.deepEqual(seen.body.tools, [{ type: 'web_search' }])
+    assert.equal(seen.body.model, 'opencode-go/glm-5.3-flash')
+    assert.ok(seen.body.input[0].content[0].text.includes('node lts'))
+    assert.equal(r.sources.length, 2)
+    assert.equal(r.sources[0].url, 'https://nodejs.org/en/about/previous-releases')
+    assert.equal(r.sources[0].title, 'Node.js 22 LTS')
+    assert.equal(r.sources[0].snippet, 'Current active LTS line since October 2024.')
+  } finally { restore() }
+})
+
+test('opencodex: baseURL/token/carrier 可配置', async () => {
+  let seen = null
+  const restore = stubFetch(async (url, init) => {
+    seen = { url, init, body: JSON.parse(init.body) }
+    return { json: SIDECAR_RESPONSE }
+  })
+  try {
+    await backends.opencodex.search(
+      { apiKey: 'tok1', baseURL: 'http://127.0.0.1:9999/', carrierModel: 'gpt-5.6-luna' },
+      { query: 'q', maxResults: 3 }, undefined,
+    )
+    assert.equal(seen.url, 'http://127.0.0.1:9999/v1/responses')
+    assert.equal(seen.init.headers.authorization, 'Bearer tok1')
+    assert.equal(seen.body.model, 'gpt-5.6-luna')
+  } finally { restore() }
+})
+
+test('opencodex: HTTP 401 → auth 错误(不重试)', async () => {
+  const restore = stubFetch(async () => ({ status: 401, text: 'unauthorized' }))
+  try {
+    await assert.rejects(
+      () => backends.opencodex.search({ apiKey: 'bad' }, { query: 'q' }, undefined),
+      (e) => e.kind === 'auth',
+    )
+  } finally { restore() }
+})
+
+test('opencodex: 服务没起(ECONNREFUSED) → transient', async () => {
+  const original = globalThis.fetch
+  globalThis.fetch = async () => { throw new TypeError('fetch failed: connect ECONNREFUSED') }
+  try {
+    await assert.rejects(
+      () => backends.opencodex.search({}, { query: 'q' }, undefined),
+      (e) => e.kind === 'transient',
+    )
+  } finally { globalThis.fetch = original }
+})
+
+test('opencodex: 空文本/无 URL → transient', async () => {
+  const restore = stubFetch(async () => ({ json: { output: [{ content: [{ type: 'output_text', text: 'no links here' }] }] } }))
+  try {
+    await assert.rejects(
+      () => backends.opencodex.search({}, { query: 'q' }, undefined),
+      (e) => e.kind === 'transient' && /no parseable sources/.test(e.message),
+    )
+  } finally { restore() }
+})
+
+test('opencodex: output_text 平铺响应也支持', async () => {
+  const restore = stubFetch(async () => ({ json: { output_text: 'T — https://flat.example — S' } }))
+  try {
+    const r = await backends.opencodex.search({}, { query: 'q', maxResults: 3 }, undefined)
+    assert.equal(r.sources[0].url, 'https://flat.example')
+  } finally { restore() }
+})
+
+test('extractResponseText: 拼 message content 的 output_text, 忽略 reasoning', () => {
+  assert.equal(extractResponseText(SIDECAR_RESPONSE), 'Node.js 22 LTS — https://nodejs.org/en/about/previous-releases — Current active LTS line since October 2024.\nNode.js releases — https://github.com/nodejs/release#release-schedule — Official release schedule with LTS dates.')
+  assert.equal(extractResponseText(null), '')
+  assert.equal(extractResponseText({ output_text: 'flat' }), 'flat')
+})
+
+test('parseSidecarSources: 容错破折号/编号/尾标点', () => {
+  const src = parseSidecarSources([
+    '1. Title One - https://a.example/path. - summary one',
+    '2. Title Two — https://b.example — summary two',
+    '* Title Three: https://c.example : summary three',
+    'no url line',
+    '',
+  ].join('\n'))
+  assert.equal(src.length, 3)
+  assert.equal(src[0].url, 'https://a.example/path')
+  assert.equal(src[0].title, 'Title One')
+  assert.equal(src[1].title, 'Title Two')
+  assert.equal(src[2].title, 'Title Three')
+})
+
+const SIDECAR_SSE = [
+  'event: response.created',
+  'data: {"type":"response.created","sequence_number":0,"response":{"id":"","status":"in_progress","output":[]}}',
+  '',
+  ': keep-alive comment (not JSON)',
+  '',
+  'event: response.completed',
+  `data: ${JSON.stringify({ type: 'response.completed', sequence_number: 9, response: { id: 'r1', status: 'completed', output: SIDECAR_RESPONSE.output } })}`,
+  '',
+].join('\n')
+
+test('opencodex: SSE 响应(含 keep-alive 帧)从 response.completed 抽结果', async () => {
+  let seen = null
+  const restore = stubFetch(async (url, init) => {
+    seen = { url, init, body: JSON.parse(init.body) }
+    return { text: SIDECAR_SSE }
+  })
+  try {
+    const r = await backends.opencodex.search({ apiKey: '' }, { query: 'node lts', maxResults: 5 }, undefined)
+    assert.equal(r.sources.length, 2)
+    assert.equal(r.sources[0].url, 'https://nodejs.org/en/about/previous-releases')
+  } finally { restore() }
+})
+
+test('completedResponseFromSse: SSE / JSON / 空流', async () => {
+  const { completedResponseFromSse } = await import('../lib/backends.js')
+  const sseJson = JSON.parse(SIDECAR_SSE.match(/^data: (\{.*completed.*\})$/gm)[0].slice(6)).response
+  assert.deepEqual(completedResponseFromSse(SIDECAR_SSE), sseJson)
+  assert.deepEqual(completedResponseFromSse('{"output":[]}'), { output: [] })
+  assert.equal(completedResponseFromSse('event: ping\ndata: not json'), null)
+})
