@@ -42,9 +42,9 @@
   },
   "dependencies": {},
   "peerDependencies": {
-    "@deepseek-ai/dsh-launch-environment": "^0.1.0-rc.6",
-    "@deepseek-ai/dsh-settings": "^0.1.0-rc.7",
-    "@deepseek-ai/dsh-web": "^0.1.0-rc.6",
+    "@deepseek-ai/dsh-launch-environment": "^0.2.0-rc.1",
+    "@deepseek-ai/dsh-settings": "^0.2.0-rc.1",
+    "@deepseek-ai/dsh-web": "^0.2.0-rc.1",
     "@deepseek-ai/schemastery": "^3.18.1"
   },
   "dsh": {
