@@ -346,3 +346,20 @@ test('fetch: 没有 fetch 适配器 → 抛错', async () => {
   }), { serper: { search: async () => ({ sources: [] }) } })
   await assert.rejects(() => p.fetch({ url: 'https://x.example' }), /no fetch-capable/)
 })
+
+test('abort (工具超时/用户中断) 不计入熔断: 连 abort 5 次也不开断', async () => {
+  let calls = 0
+  const registry = makeRegistry({
+    a: async () => { calls++; throw Object.assign(new Error('WEB_ABORTED'), { kind: 'abort' }) },
+  })
+  const p = new SearchPoolProvider(() => ({
+    backends: [{ id: 'a', kind: 'a', priority: 1 }],
+    circuit: { threshold: 3, burstWindowMs: 60_000 },
+  }), registry)
+  for (let i = 0; i < 5; i++) {
+    await assert.rejects(() => p.search({ query: 'x' }), /WEB_ABORTED/)
+  }
+  assert.equal(calls, 5, 'abort 从不触发开断, 每次都如常尝试')
+  assert.equal(p.circuit.stats('a').failures, 0)
+  assert.equal(p.circuit.isOpen('a'), false)
+})
