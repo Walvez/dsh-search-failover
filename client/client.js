@@ -4,7 +4,7 @@
  *
  * Registers a "搜索池" settings section (settings.section, order 110) that
  * lets you fill in the API key for every search backend and save it. Keys
- * persist into the host `settings` service (settings.yaml user layer) and
+ * persist into the host `settings` document (the profile's cordis.patch.yml on DSH 0.2.1) and
  * take effect immediately — the host provider re-reads config on every
  * search, so no restart is needed.
  *
@@ -23,7 +23,7 @@ const NS = 'searchPool'
 const LS = {
   zh: {
     nav: '搜索池',
-    desc: '配置各大搜索 / 抓取后端的 API Key 与路由策略。密钥仅存储于本地 settings.yaml，保存即热生效（无需重启）。同一引擎可换行填多个 Key。',
+    desc: '配置各大搜索 / 抓取后端的 API Key 与路由策略。保存即热生效（无需重启）。密钥写在本地 profile 配置（cordis.patch.yml，该文件被工作区仓库 git 跟踪）；更安全的做法是留空 apiKey、改在 .env 里配 apiKeyEnv。同一引擎可换行填多个 Key。',
     keysTitle: '后端引擎列表',
     backend: '后端引擎',
     key: 'API Key 凭证',
@@ -38,9 +38,9 @@ const LS = {
     saving: '正在保存…',
     saved: '配置已保存，实时生效 ✓',
     saveFailed: '保存失败：',
-    reset: '恢复默认配置',
+    reset: '恢复行内配置',
     resetting: '正在恢复…',
-    resetDone: '已恢复默认配置（行内声明）',
+    resetDone: '已恢复行内配置（启动时快照）',
     loading: '正在获取后端状态…',
     loadFailed: '读取失败：',
     customTag: '自定义',
@@ -80,7 +80,7 @@ const LS = {
   },
   en: {
     nav: 'Search Pool',
-    desc: 'Manage API keys and routing for search/fetch backends. Keys stay in local settings.yaml and take effect immediately. Multiple keys per engine: one per line.',
+    desc: 'Manage API keys and routing for search/fetch backends. Saves take effect immediately. Keys are written into the profile config (cordis.patch.yml, which is git-tracked); prefer leaving apiKey empty and using apiKeyEnv from .env. Multiple keys per engine: one per line.',
     keysTitle: 'Search Backends',
     backend: 'Backend',
     key: 'API Key Credential',
@@ -95,9 +95,9 @@ const LS = {
     saving: 'Saving…',
     saved: 'Saved, effective now ✓',
     saveFailed: 'Save failed: ',
-    reset: 'Reset to Defaults',
+    reset: 'Reset to inline config',
     resetting: 'Resetting…',
-    resetDone: 'Reset to inline defaults',
+    resetDone: 'Restored inline config (startup snapshot)',
     loading: 'Fetching search pool state…',
     loadFailed: 'Load failed: ',
     customTag: 'custom',

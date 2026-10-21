@@ -190,6 +190,30 @@ dsh web
 
 打开 Web GUI (默认 `http://127.0.0.1:3080`)，进入 **设置 → 搜索池** 即可在界面直接管理所有 Key。
 
+### 4. DSH 版本兼容
+
+`0.3.17+` 同时支持两代设置 API，无需按版本装不同分支：
+
+| DSH 运行时 | 设置读写通道 | 设置面板 |
+| --- | --- | --- |
+| `0.2.1` 及以上 | 入口 `Config` + `settings.describe()/mutate()`（写进 profile 补丁文档） | 完整可用 |
+| `0.2.0` | 旧 `settings.register()` user 层 | 完整可用（旧行为） |
+| 更早 / 无 settings 服务 | 只读 `cordis.patch.yml` 行内配置 | 只能看状态，写入返回 500 并说明原因 |
+
+在 `0.2.1+` 上请注意两点：
+
+- **设置文档就是你的 `cordis.patch.yml`**：DSH 0.2.1 把设置写进 profile 的补丁文档本身
+  （行内配置和"设置页用户层"是同一个文件）。因此面板的"恢复行内配置"不会 `unset` 字段，
+  而是把 **apply 时的快照显式写回**——`unset` 会把你在文档里手写的 `backends` 一起删掉
+  （实测：点一次重置，7 个后端从配置里消失）。副作用：首次从设置页保存时，该条目会被
+  重新序列化，条目内的行尾注释会丢（配置值不丢）。
+- **可热改的字段由 schema 决定**：本插件把 `strategy`、`backends`（含 Key / 优先级 / 权重 / 自定义后端）、
+  `removed` 标记为 `volatile()`，因此这几项能在面板里改并立即生效；`timeoutMs`、`maxResults`、
+  `mergeThreshold`、`circuit` 仍属组合层配置，改它们要编辑 `cordis.patch.yml` 后重启（这是有意的：
+  settings 服务的默认值会把行内 `timeoutMs` 冲掉，例如 opencodex 侧车需要 40s+ 超时）。
+- **需要 `@deepseek-ai/schemastery >= 3.18.5`**（`.volatile()` 从该版本才有）。若宿主自带更低的版本，
+  插件会打印 `schemastery 缺少 .volatile()` 警告并退化为"只用行内配置"，面板不可用。
+
 ---
 
 ## 📊 后端引擎支持与额度参考
@@ -261,3 +285,51 @@ EXA_API_KEY=your_key node scripts/smoke.mjs exa serper tavily
 本项目基于 [MIT License](LICENSE) 开源。
 
 欢迎提交 Issue 和 Pull Request 共同改进！
+
+---
+
+## 📝 更新日志
+
+### 0.3.22 (2026-10-21)
+
+- 写回文档时去掉所有空字符串字段（含 `apiKeyEnv: ""`）：设置页保存后不会再把
+  `apiKeyEnv: ""` / `weight: 1` 这类默认值刷进 profile 补丁文档。
+
+### 0.3.21 (2026-10-21)
+
+- **修复保存一次就丢 key 来源**：`normalizeConfig()` 重建 backend 对象时只保留固定字段，
+  把 `apiKeyEnv` 抹掉了——设置页保存任意一项后，下次启动 `.env` 里的 key 全部失效。
+  现在保留原对象其余字段；写回文档时也不再写入空的 `apiKey: ""` / `baseURL: ""`。
+- 测试：`normalizeConfig` 保留 `apiKeyEnv` / 自定义字段。
+
+### 0.3.20 (2026-10-21)
+
+- **修复直写明文 key 的风险**：写路径（key 保存 / 后端增删序）原先读的是"合并后的生效配置"，
+  在 DSH 0.2.1 下那份配置的 `apiKey` 已被 `.env` 解析成明文，保存一次就会把所有 key 明文写进
+  git 跟踪的 profile 文档。现在写路径改读 `store.raw()`（入口原值、不经 env 解析），
+  只写回 UI 真正改过的字段，`apiKeyEnv` 原样保留。
+- 测试补强：`test/routes.test.js` 断言写回后 `apiKeyEnv` 仍在、且不会带入 env 明文 key。
+
+### 0.3.18 (2026-10-21)
+
+- **修复"恢复行内配置"会删配置**：DSH 0.2.1 的 settings 文档就是 profile 的 `cordis.patch.yml`，
+  原先用 `unset` 清理用户覆盖会把用户手写在文档里的行内 `backends` 一起删掉。现在改为把
+  apply 时（未经 `.env` 解析、不含明文密钥）的快照显式写回，语义变成"撤销本次运行内的设置页改动"；
+  拿不到快照时直接报错而不是冒险清空。
+- README 补充 0.2.1 下设置文档 = 补丁文档的注意事项；面板文案改为"恢复行内配置"。
+
+### 0.3.17 (2026-10-21)
+
+- **适配 DSH 0.2.1 的新设置 API**：0.2.1 移除了 `settings.register()`，设置服务改为
+  "配置 schema 派生的表单 + `describe()/mutate()` 写入"。插件现在
+  - 导出 `Config`（含三个 `volatile()` 字段：`strategy` / `backends` / `removed`），
+  - 热读走入口 `Config` 的 volatile 引用（`config.backends.get()`），不经过 `describe()`（它会脱敏 `apiKey`），
+  - 写入走 `settings.mutate(ns, [{op:'set', path:[…]}])`，带 `revision` 乐观锁并在冲突时重试一次，
+  - 重置走 `unset` 路径操作回到组合层基线，
+  - 命名空间取本插件 entry id（`fiber.entry.id`，可能带父级前缀，按候选列表探测），
+  - 同时用 `settings.configure({auto:false})` 关掉自动生成的通用表单（避免与本插件的原生面板重复）。
+- 旧 API 保留：DSH `0.2.0` 上自动走 `settings.register()` 分支，行为与 0.3.16 一致。
+- 无 settings 服务时不再整块卸载 HTTP 路由：状态/额度/探测仍然可看，只有写入返回 500 并附原因。
+- 修复：`mountSearchPoolRoutes` 里 `webServer` 未绑定（0.3.12 起的 `reference is not defined`）。
+- 测试：新增 `test/routes.test.js`（HTTP 写路径/跨源校验/错误码）与重写的
+  `test/settings-host.test.js`（volatile 引用读写、revision 冲突、双代 API 分支），共 83 个用例全绿。

@@ -1,6 +1,6 @@
 {
   "name": "dsh-search-failover",
-  "version": "0.3.16",
+  "version": "0.3.22",
   "description": "Provider-level web search+fetch pool for DeepSeek Harness: bypass the official LLM search channel (0 model tokens), failover/rotate across Exa/Tavily/Jina/Firecrawl/Serper/SerpApi/SearXNG/DDG/Brave with quota-aware circuit breaking, multi-key rotation, and a GUI settings page.",
   "type": "module",
   "main": "lib/index.js",
@@ -43,9 +43,9 @@
   "dependencies": {},
   "peerDependencies": {
     "@deepseek-ai/dsh-launch-environment": "^0.2.0-rc.1",
-    "@deepseek-ai/dsh-settings": "^0.2.0-rc.1",
+    "@deepseek-ai/dsh-settings": "^0.2.0-rc.1 || ^0.2.1-rc.1",
     "@deepseek-ai/dsh-web": "^0.2.0-rc.1",
-    "@deepseek-ai/schemastery": "^3.18.1"
+    "@deepseek-ai/schemastery": "^3.18.5"
   },
   "dsh": {
     "bundle": {
@@ -58,6 +58,20 @@
         "@deepseek-ai/dsh-client-ui-slots"
       ],
       "platform": "web"
+    }
+  },
+  "devDependencies": {
+    "@deepseek-ai/schemastery": "^3.18.5"
+  },
+  "peerDependenciesMeta": {
+    "@deepseek-ai/dsh-launch-environment": {
+      "optional": true
+    },
+    "@deepseek-ai/dsh-settings": {
+      "optional": true
+    },
+    "@deepseek-ai/dsh-web": {
+      "optional": true
     }
   }
 }

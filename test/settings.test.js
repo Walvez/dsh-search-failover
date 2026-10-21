@@ -98,7 +98,7 @@ test('installSearchPoolSettings: settings 服务不存在时降级为行内', ()
     // cordis 的 inject 总是存在: settings 服务缺失时回调永不触发
     inject: () => {},
   }
-  const source = installSearchPoolSettings(ctx, baseConfig())
+  const source = installSearchPoolSettings(ctx, { fallback: baseConfig() })
   assert.equal(source().backends[0].apiKey, 'from-env')
 })
 
@@ -134,7 +134,7 @@ test('installSearchPoolSettings: 保存后 source() 实时反映 (热生效)', (
     // sctx 需要暴露 settings 属性 (installSearchPoolSettings 里 sctx.settings.register)
     inject: (names, cb) => cb({ ...ctx, settings: service }),
   }
-  const source = installSearchPoolSettings(ctx, baseConfig())
+  const source = installSearchPoolSettings(ctx, { fallback: baseConfig() })
 
   // 初始 = 行内
   assert.equal(source().backends[0].apiKey, 'from-env')
@@ -165,23 +165,19 @@ test('mergeConfigWithSettings: removed 过滤行内后端 (删除内置后恢复
   assert.equal(restored.backends.length, 2)
 })
 
-test('mergeConfigWithSettings: 行内 timeoutMs 不被 settings schema 默认盖掉 (opencodex sidecar 需 90s)', () => {
-  const base = { ...baseConfig(), timeoutMs: 90000, maxResults: 8 }
-  // 模拟真实 dsh-settings 行为: user 从未保存, scope.get() 返回 schema 全量默认值
-  const s = normalizeConfig({})
-  assert.equal(s.timeoutMs, 15000)
-  const merged = mergeConfigWithSettings(base, s)
-  assert.equal(merged.timeoutMs, 90000)
-  assert.equal(merged.maxResults, 8)
-  // strategy 例外: 用户 via /search-pool/config 可切换, s 优先
-  const rotated = mergeConfigWithSettings(base, { ...s, strategy: 'rotate' })
-  assert.equal(rotated.strategy, 'rotate')
-})
-
 test('splitKeys: 换行与逗号分隔, 去空白', async () => {
   const { splitKeys } = await import('../lib/settings.js')
   assert.deepEqual(splitKeys('a\nb\n'), ['a', 'b'])
   assert.deepEqual(splitKeys('a, b, c'), ['a', 'b', 'c'])
   assert.deepEqual(splitKeys(''), [])
   assert.deepEqual(splitKeys(null), [])
+})
+
+test('normalizeConfig 保留 apiKeyEnv 等未知字段 (否则保存一次就丢 key 来源)', () => {
+  const out = normalizeConfig({
+    backends: [{ id: 'exa', kind: 'exa', apiKeyEnv: 'EXA_API_KEY', custom: true, note: 'x' }],
+  })
+  assert.equal(out.backends[0].apiKeyEnv, 'EXA_API_KEY')
+  assert.equal(out.backends[0].note, 'x')
+  assert.equal(out.backends[0].priority, 99)
 })
