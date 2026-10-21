@@ -41,6 +41,7 @@ const LS = {
     reset: '恢复行内配置',
     resetting: '正在恢复…',
     resetDone: '已恢复行内配置（启动时快照）',
+    resetUnchanged: '当前已是行内配置，未改写文档',
     loading: '正在获取后端状态…',
     loadFailed: '读取失败：',
     customTag: '自定义',
@@ -98,6 +99,7 @@ const LS = {
     reset: 'Reset to inline config',
     resetting: 'Resetting…',
     resetDone: 'Restored inline config (startup snapshot)',
+    resetUnchanged: 'Already on the inline config — document untouched',
     loading: 'Fetching search pool state…',
     loadFailed: 'Load failed: ',
     customTag: 'custom',
@@ -362,7 +364,7 @@ function SearchPoolSection({ t }) {
       const res = await fetch('/search-pool/reset', { method: 'POST' })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`)
-      setMsg(t('resetDone'))
+      setMsg(data?.skipped === true ? t('resetUnchanged') : t('resetDone'))
       setMsgErr(false)
       setKeys({})
       load()

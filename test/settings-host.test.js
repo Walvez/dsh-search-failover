@@ -7,6 +7,8 @@ import {
   readLiveConfig,
   entryIdCandidates,
   resetOps,
+  sameAsBaseline,
+  cleanBackend,
   SearchPoolSettings,
   SUPPORTS_VOLATILE,
 } from '../lib/settings-host.js'
@@ -173,11 +175,43 @@ test('resetOps: 显式写回快照, 不用 unset (unset 会删掉补丁文档里
 test('modern: reset() 把 apply() 时的快照写回去 (不删文档里的 backends)', async () => {
   const { config } = makeEntryConfig({ strategy: 'rotate', backends: [{ id: 'exa', kind: 'exa' }] })
   const settings = makeModernSettings()
-  const snapshot = { strategy: 'rotate', backends: [{ id: 'exa', kind: 'exa' }], removed: [] }
+  const snapshot = { strategy: 'failover', backends: [{ id: 'opencodex', kind: 'opencodex', priority: 1 }], removed: [] }
   const store = installSearchPoolSettings(makeCtx(settings), { config, fallback: {}, snapshot })
-  await store.reset()
+  const result = await store.reset()
+  assert.equal(result.skipped, false)
   assert.deepEqual(settings.state.writes[0].ops, resetOps(snapshot))
   assert.ok(settings.state.writes[0].ops.every((op) => op.op === 'set'), '绝不发 unset')
+})
+
+test('modern: 当前值已等于快照时 reset() 不写文档 (避免无意义重排配置)', async () => {
+  const config0 = { strategy: 'rotate', backends: [{ id: 'exa', kind: 'exa' }], removed: [] }
+  const { config } = makeEntryConfig(config0)
+  const settings = makeModernSettings()
+  const store = installSearchPoolSettings(makeCtx(settings), { config, fallback: {}, snapshot: structuredClone(config0) })
+  const result = await store.reset()
+  assert.equal(result.skipped, true)
+  assert.equal(settings.state.writes.length, 0)
+})
+
+test('resetOps: 清洗空字符串与运行时标记, 别把 apiKey:"" 噪音写进文档', () => {
+  const ops = resetOps({
+    strategy: 'failover',
+    backends: [
+      { id: 'opencodex', kind: 'opencodex', priority: 1, apiKey: '', apiKeyEnv: '', baseURL: '', custom: true, updatedAt: 1 },
+      { id: 'exa', kind: 'exa', priority: 2, apiKeyEnv: 'EXA_API_KEY', weight: 1 },
+    ],
+  })
+  const backends = ops[1].value
+  assert.deepEqual(backends[0], { id: 'opencodex', kind: 'opencodex', priority: 1 })
+  assert.deepEqual(backends[1], { id: 'exa', kind: 'exa', priority: 2, apiKeyEnv: 'EXA_API_KEY', weight: 1 })
+})
+
+test('sameAsBaseline: 忽略空字符串与运行时标记, 顺序/字段差异仍判不等', () => {
+  const base = { strategy: 'failover', backends: [{ id: 'exa', kind: 'exa', priority: 1 }], removed: [] }
+  assert.equal(sameAsBaseline({ ...base, backends: [{ id: 'exa', kind: 'exa', priority: 1, apiKey: '' }] }, base), true)
+  assert.equal(sameAsBaseline({ ...base, strategy: 'rotate' }, base), false)
+  assert.equal(sameAsBaseline({ ...base, removed: ['ddg'] }, base), false)
+  assert.equal(sameAsBaseline({ ...base, backends: [{ id: 'exa', kind: 'exa', priority: 2 }] }, base), false)
 })
 
 test('modern: 拿不到快照时 reset() 明确报错 (不冒删配置的险)', async () => {
